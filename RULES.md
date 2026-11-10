@@ -120,3 +120,51 @@ That licence covers this repository only and says nothing about the match data.
 If a rule is unclear, or your approach sits near a line, **ask before you build on it**. Open an
 issue. An answer before the deadline is worth more to everyone than a disqualification after it,
 and a question that needed asking usually means the rule needed clarifying.
+
+
+## Updated Rules(via email)
+Clarification of the rules
+
+
+
+Dear participants,
+
+
+
+There has been some confusion about what is and what is not permitted in the Initial Challenge, so we are sending this clarification to all of you.
+
+
+
+Please note that the rules below take precedence over any other information you may have received previously, whether in the documentation, in earlier emails or in answers to individual questions.
+
+
+
+What is not allowed
+
+   -   Checking your output against the video.
+
+   -   Hand labels, human-produced data or any other data created manually on the provided game.
+
+   -   Uploading the provided data to AI services.
+
+   -   Training, fitting or calibrating your algorithm on the ground-truth possession data or on the provided video.
+
+
+
+What is allowed
+
+   -   Running automatic checks using only the provided data.
+
+   -   Inspecting the provided data and the video to better understand what counts as possession.
+
+   -   Using as input the video, the automatic tracking data, the smart tagging or any other generated data, as long as your algorithm was not trained on the ground truth or on the provided video.
+
+   -   Providing files of intermediate steps.
+
+   -   Using any dataset you have the rights to use. Please check the license of any dataset before using it.
+
+
+
+Training and tuning
+
+If you need to train (or retrain), you MUST use only external data. If your algorithm has parameters that need to be tuned, you MUST tune them on external data, never on the ground-truth possession data or on the provided video.

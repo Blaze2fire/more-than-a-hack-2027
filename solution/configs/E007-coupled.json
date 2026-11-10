@@ -1,0 +1,15 @@
+{
+ "b_dead": -0.5565,
+ "b_slow": 0.7313,
+ "b_slow_long": 0.2294,
+ "c_dead": 3.2292,
+ "c_live": 8.2705,
+ "c_team": 49.9889,
+ "decouple": 0.0,
+ "k_team": 2.8465,
+ "min_spell": 23,
+ "r_near": 1.6168,
+ "s_margin": 0.5345,
+ "v_gate": 9.0541,
+ "v_ref": 2.0202
+}

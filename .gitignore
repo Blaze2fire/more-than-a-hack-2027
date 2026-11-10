@@ -62,3 +62,11 @@ __pycache__/
 venv/
 env/
 .DS_Store
+
+# -- team solution ------------------------------------------------------------------------------
+# External games are public but not ours to redistribute; caches hold frame-level arrays of the
+# gated match. Neither belongs in a public repository.
+external/
+cache/
+solution/out/
+solution/out_*.log

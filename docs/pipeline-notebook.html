@@ -1,0 +1,852 @@
+<title>Possession Pipeline Notebook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: team lab notebook. Sticky contents rail on the left at desktop, one reading column on the
+   right. Same visual system as the MTAH 2027 Field Guide so the two pages read as a pair. */
+:root {
+  --bg: #f3f6f3; --surface: #ffffff; --surface-2: #e8eee9; --ink: #14211b; --ink-2: #46564d;
+  --ink-3: #66756d; --line: #d2dcd5; --line-strong: #a9b8ae; --accent: #1c7a4e; --accent-ink: #ffffff;
+  --accent-soft: #dbeee3; --home: #e34948; --away: #2a78d6; --dead: #a3aea8; --dead-ink: #14211b;
+  --s-ours: #1baf7a; --s-base: #9aa7a0; --s-learn: #6250d6; --s-oracle: #eda100;
+  --no-soft: #f8ebe7; --no-ink: #9a3324; --warn-soft: #fbf1d9;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1612; --surface: #14201b; --surface-2: #1b2a24; --ink: #e4eee8; --ink-2: #adbdb4;
+    --ink-3: #8a9b91; --line: #293b33; --line-strong: #3f554a; --accent: #4cc38a; --accent-ink: #06150e;
+    --accent-soft: #173326; --home: #e66767; --away: #3987e5; --dead: #5f6e67; --dead-ink: #e4eee8;
+    --s-ours: #199e70; --s-base: #6f7d76; --s-learn: #9085e9; --s-oracle: #c98500;
+    --no-soft: #35201c; --no-ink: #f0a493; --warn-soft: #33290f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1612; --surface: #14201b; --surface-2: #1b2a24; --ink: #e4eee8; --ink-2: #adbdb4;
+  --ink-3: #8a9b91; --line: #293b33; --line-strong: #3f554a; --accent: #4cc38a; --accent-ink: #06150e;
+  --accent-soft: #173326; --home: #e66767; --away: #3987e5; --dead: #5f6e67; --dead-ink: #e4eee8;
+  --s-ours: #199e70; --s-base: #6f7d76; --s-learn: #9085e9; --s-oracle: #c98500;
+  --no-soft: #35201c; --no-ink: #f0a493; --warn-soft: #33290f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+:not(pre) > code { background: var(--surface-2); padding: 0.08em 0.36em; border-radius: 4px; overflow-wrap: anywhere; }
+h1, h2, h3, h4 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 1.2em; }
+strong, b { font-weight: 600; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+.hero { padding-block: 44px 32px; border-bottom: 1px solid var(--line); }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.hero h1 { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; font-size: clamp(44px, 6.5vw, 76px); line-height: 0.95; margin-top: 14px; }
+.hero .lede { margin-top: 16px; font-size: 18px; color: var(--ink-2); max-width: 66ch; }
+.hero .lede strong { color: var(--ink); }
+.stamp { margin-top: 14px; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-3); }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 26px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.tile .v { font-size: 30px; font-weight: 600; line-height: 1.1; }
+.tile .v small { font-size: 15px; font-weight: 400; color: var(--ink-2); }
+.tile .l { font-size: 13.5px; color: var(--ink-2); margin-top: 6px; line-height: 1.4; }
+.tile.hot { background: var(--accent-soft); border-color: transparent; }
+
+.layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 56px; padding-block: 40px 80px; }
+.rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; }
+.rail nav { display: flex; flex-direction: column; gap: 2px; }
+.rail .eyebrow { margin-bottom: 10px; }
+.rail a { color: var(--ink-2); text-decoration: none; font-size: 14px; padding: 5px 10px; border-radius: 6px; border-left: 2px solid transparent; }
+.rail a:hover { background: var(--surface-2); color: var(--ink); }
+.rail a.on { color: var(--ink); border-left-color: var(--accent); background: var(--surface); }
+main { min-width: 0; max-width: 820px; }
+section { padding-top: 12px; margin-bottom: 68px; scroll-margin-top: 24px; }
+section > header { margin-bottom: 20px; }
+section h2 { font-family: var(--font-display); font-weight: 600; text-transform: uppercase; font-size: clamp(32px, 4.4vw, 44px); line-height: 1; margin-top: 6px; }
+section h3 { font-size: 19px; font-weight: 600; margin-bottom: 8px; }
+.prose { display: flex; flex-direction: column; gap: 14px; max-width: 68ch; }
+.muted { color: var(--ink-2); }
+.stack { display: flex; flex-direction: column; gap: 26px; }
+.sub { display: flex; flex-direction: column; gap: 12px; }
+.note { font-size: 14px; color: var(--ink-2); max-width: 72ch; }
+
+.callout { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 16px 18px; }
+.callout h3 { font-size: 16px; }
+.callout.rule { border: 2px solid var(--ink); }
+.callout.warn { background: var(--warn-soft); border-color: transparent; }
+.flag { display: inline-block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); width: fit-content; white-space: nowrap; }
+.flag.keep { background: var(--accent); color: var(--accent-ink); }
+.flag.drop { background: var(--no-soft); color: var(--no-ink); }
+.flag.wip { background: var(--warn-soft); color: var(--ink); }
+
+figure { margin: 0; }
+.fig { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 18px 14px; }
+.fig .scroll { overflow-x: auto; }
+.fig svg { display: block; width: 100%; height: auto; color: var(--ink); }
+.fig figcaption { margin-top: 12px; font-size: 14px; color: var(--ink-2); max-width: 72ch; }
+.svg-wide { min-width: 720px; } .svg-mid { min-width: 560px; }
+.t-sm { font-family: var(--font-body); font-size: 12px; fill: var(--ink-2); }
+.t-xs { font-family: var(--font-body); font-size: 11px; fill: var(--ink-3); }
+.t-mono { font-family: var(--font-mono); font-size: 11px; fill: var(--ink); }
+.t-mono-2 { font-family: var(--font-mono); font-size: 10.5px; fill: var(--ink-2); }
+.t-strong { font-family: var(--font-body); font-size: 13px; font-weight: 600; fill: var(--ink); }
+.t-head { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; fill: var(--ink-3); }
+
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-weight: 600; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); background: var(--surface-2); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td .mono, td.mono { white-space: nowrap; }
+tr.hl td { background: var(--accent-soft); }
+
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+.panel h4 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+.panel ul { display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; color: var(--ink-2); }
+.panel.no { background: var(--no-soft); border-color: transparent; }
+.panel.yes { background: var(--accent-soft); border-color: transparent; }
+
+/* horizontal bar chart */
+.hbars { display: grid; grid-template-columns: minmax(120px, 230px) minmax(0, 1fr) 5ch; gap: 9px 12px; align-items: center; font-size: 13.5px; }
+.hbars .n { color: var(--ink); min-width: 0; line-height: 1.3; }
+.hbars .n small { display: block; color: var(--ink-3); font-size: 12px; }
+.hbars .track { height: 16px; position: relative; background: linear-gradient(to right, var(--line) 1px, transparent 1px) 0 0 / 20% 100%; border-right: 1px solid var(--line); }
+.hbars .fill { display: block; height: 16px; border-radius: 0 4px 4px 0; background: var(--s-base); }
+.hbars .fill.ours { background: var(--s-ours); } .hbars .fill.learn { background: var(--s-learn); } .hbars .fill.oracle { background: var(--s-oracle); }
+.hbars .v { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+.axis { display: grid; grid-template-columns: minmax(120px, 230px) minmax(0, 1fr) 5ch; gap: 0 12px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-top: 4px; }
+.axis .ticks { display: flex; justify-content: space-between; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 14px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+
+/* steps */
+.steps { list-style: none; padding: 0; display: flex; flex-direction: column; counter-reset: s; }
+.steps > li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 16px; padding: 16px 0; border-top: 1px solid var(--line); counter-increment: s; }
+.steps > li::before { content: counter(s); font-family: var(--font-display); font-weight: 700; font-size: 34px; line-height: 1; color: var(--accent); }
+.steps h3 { font-size: 17px; margin-bottom: 4px; }
+.steps .body { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 15px; color: var(--ink-2); }
+.steps .where { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
+.formula { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; overflow-x: auto; color: var(--ink); white-space: pre; }
+
+/* decision cards */
+.decisions { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.dec { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.dec:first-child { border-top: 0; }
+.dec h4 { font-size: 15.5px; font-weight: 600; margin-bottom: 3px; }
+.dec p { font-size: 14.5px; color: var(--ink-2); }
+
+.exp { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.exp .top { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; }
+.exp .id { font-family: var(--font-mono); font-size: 13px; color: var(--ink-3); }
+.exp h3 { margin: 0; font-size: 17px; }
+.exp p { font-size: 14.5px; color: var(--ink-2); max-width: 74ch; }
+.exp p b { color: var(--ink); }
+
+.tree { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.tree .row { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; padding: 10px 16px; border-top: 1px solid var(--line); align-items: baseline; }
+.tree .row:first-child { border-top: 0; }
+.tree .p { font-family: var(--font-mono); font-size: 13px; overflow-wrap: anywhere; min-width: 0; }
+.tree .d { font-size: 14px; color: var(--ink-2); min-width: 0; }
+.cmds { margin: 0; background: var(--surface-2); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; color: var(--ink); }
+.cmds .c { color: var(--ink-3); }
+
+.cells { display: inline-flex; gap: 3px; font-family: var(--font-mono); font-size: 12px; }
+.lab { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 3px; font-weight: 500; }
+.lab.H { background: var(--home); color: #fff; } .lab.A { background: var(--away); color: #fff; } .lab.D { background: var(--dead); color: var(--dead-ink); }
+
+footer { border-top: 1px solid var(--line); padding-block: 28px 48px; font-size: 13.5px; color: var(--ink-3); }
+
+@media (max-width: 1020px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 0; padding-top: 24px; }
+  .rail { position: static; margin-bottom: 36px; }
+  .rail nav { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .rail a { border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13.5px; background: var(--surface); }
+  .rail a.on { border-color: var(--accent); }
+  main { max-width: none; }
+}
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .hbars, .axis { grid-template-columns: minmax(0, 1fr) 5ch; }
+  .hbars .n { grid-column: 1 / -1; margin-top: 6px; }
+  .axis > span:first-child { display: none; }
+  .dec { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .tree .row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .hero { padding-block: 30px 26px; }
+}
+</style>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">More than a Hack 2027 · Phase 1 · team working notes</div>
+    <h1>Possession pipeline notebook</h1>
+    <p class="lede">What we have built to label every frame of Barcelona vs Athletic Club as home, away or dead ball, how we test it without breaking the competition rules, and every decision made so far. Read this to get up to speed; the <a href="https://claude.ai/artifact/Rr1jbKBLVqwT15WYXEZQpn">Field Guide</a> covers the challenge itself.</p>
+    <div class="stamp">Last updated 2026-11-10, after an external audit · branch <code>solution</code> · experiments E006–E008 · deadline 2026-11-17</div>
+
+    <div class="tiles">
+      <div class="tile hot"><div class="v">0.551 <small>spellF1</small></div><div class="l">Learned model + decoder, held-out: every game scored by models and decoder settings that never saw it (E008)</div></div>
+      <div class="tile"><div class="v">0.432</div><div class="l">Rule-based model, held-out (E007)</div></div>
+      <div class="tile"><div class="v">0.250</div><div class="l">Organisers' baseline on the same benchmark (published real-match score: 0.2433)</div></div>
+      <div class="tile"><div class="v">9 <small>findings</small></div><div class="l">From an external audit on Nov 10. Earlier, higher numbers (0.525, 0.655) were inflated and are withdrawn.</div></div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap layout">
+  <aside class="rail">
+    <div class="eyebrow">Contents</div>
+    <nav id="toc">
+      <a href="#status">Status</a>
+      <a href="#audit">Audit and corrections</a>
+      <a href="#constraint">The constraint</a>
+      <a href="#benchmark">External benchmark</a>
+      <a href="#optiona">Rule-based model</a>
+      <a href="#tuning">Tuning</a>
+      <a href="#optionb">Learned model</a>
+      <a href="#results">Results</a>
+      <a href="#match">Competition-match runs</a>
+      <a href="#decisions">Decisions</a>
+      <a href="#contract">Data contract</a>
+      <a href="#code">Code and commands</a>
+      <a href="#next">Risks and next steps</a>
+    </nav>
+  </aside>
+
+  <main>
+        <section id="status">
+      <header><div class="eyebrow">Where we are</div><h2>Status</h2></header>
+      <div class="stack">
+        <div class="prose">
+          <p>We have two working models and a way to compare them that the rules allow. Both decode possessions as intervals with the same three-state decoder; they differ in where the per-frame evidence comes from. An external audit on November 10 found real faults in the first round of work; the pipeline, the benchmark and every number on this page were redone afterwards.</p>
+        </div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Piece</th><th>State</th><th>Where</th></tr></thead>
+            <tbody>
+              <tr><td>External benchmark v3 (3 Metrica games, 3 stoppage pictures, 2 label variants)</td><td><span class="flag keep">working</span></td><td class="mono">solution/external.py, bench.py</td></tr>
+              <tr><td>Learned model (Option B), two-stage</td><td><span class="flag keep">current best</span></td><td class="mono">solution/learned.py</td></tr>
+              <tr><td>Rule-based model (Option A)</td><td><span class="flag">fallback</span></td><td class="mono">solution/model.py</td></tr>
+              <tr><td>Competition-match loader, submission writer, pass/fail alignment check</td><td><span class="flag keep">working</span></td><td class="mono">solution/atd.py, run.py, sanity.py</td></tr>
+              <tr><td>Smart Tagging priors</td><td><span class="flag drop">not used</span></td><td class="mono">solution/tagging.py</td></tr>
+              <tr><td>Video, broadcast feed, homography</td><td><span class="flag drop">not used</span></td><td>n/a</td></tr>
+              <tr><td>Technical document, pinned dependencies, clean-clone reproduction</td><td><span class="flag">to do</span></td><td class="mono">docs/</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Nothing is committed yet. Both models have produced a valid file for the competition match; the candidate is the learned model's.</p>
+      </div>
+    </section>
+
+    <section id="audit">
+      <header><div class="eyebrow">docs/AUDIT_RESPONSE.md</div><h2>Audit and corrections</h2></header>
+      <div class="stack">
+        <div class="prose">
+          <p>A second AI model was asked to audit the pipeline after experiment E005. It raised nine findings. Seven were correct in whole or in part, and two of those were serious. This section is the short version; the full record is in <code>docs/AUDIT_RESPONSE.md</code>.</p>
+        </div>
+        <figure class="fig">
+          <div class="legend" aria-hidden="true"><span><i style="background:var(--s-base)"></i>before the audit (withdrawn)</span><span><i style="background:var(--s-ours)"></i>rule-based, after</span><span><i style="background:var(--s-learn)"></i>learned, after</span></div>
+          <div class="hbars" role="img" aria-label="Rule-based model: 0.525 before the audit, 0.432 held-out after. Learned model: 0.655 before, 0.551 held-out after.">
+            <span class="n">Rule-based, before<small>in-sample, circular dead-ball cues</small></span><span class="track"><span class="fill" style="width:52.5%"></span></span><span class="v">0.525</span>
+            <span class="n">Rule-based, after<small>held-out, benchmark v3</small></span><span class="track"><span class="fill ours" style="width:43.2%"></span></span><span class="v">0.432</span>
+            <span class="n">Learned, before<small>saw the simulated stoppage ball</small></span><span class="track"><span class="fill" style="width:65.5%"></span></span><span class="v">0.655</span>
+            <span class="n">Learned, after<small>held-out, benchmark v3</small></span><span class="track"><span class="fill learn" style="width:55.1%"></span></span><span class="v">0.551</span>
+          </div>
+          <div class="axis" aria-hidden="true"><span></span><span class="ticks"><span>0</span><span>0.2</span><span>0.4</span><span>0.6</span><span>0.8</span><span>1.0</span></span><span></span></div>
+          <figcaption>What the corrections cost. The difference is the part of the earlier scores that came from recognising our own simulation, plus the switch from in-sample to held-out reporting. Both models still clearly beat the organisers' baseline (0.250).</figcaption>
+        </figure>
+        <div class="decisions">
+          <div class="dec"><span class="flag drop">serious</span><div><h4>1. A decision was influenced by the public ground truth</h4><p>The submission script printed the public 5-minute score on every run. Smart Tagging was switched off after that score was seen to be lower with tags on. The rules forbid selecting on that number. <b>Fixed:</b> the script no longer reads the public ground truth; a separate check prints only PASS/FAIL for alignment and H/A orientation. Tags are now excluded by a rule that needs no score (see Decisions). We have still seen the number, and the technical document will disclose it.</p></div></div>
+          <div class="dec"><span class="flag drop">serious</span><div><h4>3. The dead-ball part of the benchmark was circular</h4><p>The external games have no ball during stoppages. We invented a ball path for those frames, then tuned dead-ball cues (ball outside the pitch, ball stationary) and trained the first learned model on data containing that invention. <b>Fixed:</b> no model may use the ball to decide dead versus alive, and the benchmark now runs three different invented stoppage pictures so any remaining dependence shows up as a spread.</p></div></div>
+          <div class="dec"><span class="flag wip">correct</span><div><h4>2. Unpublished statistics of the competition match shaped the benchmark</h4><p>The loader printed how often the ball is tracked outside the pitch. That observation prompted a change to the simulation, and the log wrongly described the change as independent of any tracking file. <b>Fixed:</b> statistics removed, log corrected, and after finding 3 nothing depends on the idea.</p></div></div>
+          <div class="dec"><span class="flag wip">correct</span><div><h4>8. A tidy-up step turned live play into dead ball</h4><p>A short possession straight after a restart was overwritten with D. <b>Fixed</b>, with tests.</p></div></div>
+          <div class="dec"><span class="flag wip">correct</span><div><h4>6 and 7. Team evidence leaked into the alive-or-dead decision; overlapping tags stacked</h4><p>Strong team evidence also counted as "ball alive", which is wrong at a throw-in. A decoupled scoring variant was added and tested (E007). Tag weights are now capped; tags stay off.</p></div></div>
+          <div class="dec"><span class="flag">partly</span><div><h4>4. Our "uncontrolled touch" rule in the labels</h4><p>Not a leak, but the model was being tuned to our own reading of the possession definition. The rule removes 58 of 385 possessions in game 1, 66 of 376 in game 2 and 16 of 410 in game 3. <b>Changed:</b> every case is scored against labels with and without the rule, and the objective is the mean.</p></div></div>
+          <div class="dec"><span class="flag">partly</span><div><h4>5. In-sample numbers as the headline</h4><p>Held-out checks existed, but the in-sample score was the one displayed. <b>Changed:</b> held-out is the first column in the log and the only number quoted here.</p></div></div>
+          <div class="dec"><span class="flag">not supported</span><div><h4>"The circularity caused 43% dead ball on the real match"</h4><p>The true dead-ball share of the match is unpublished, so there is no legitimate evidence either way. The audit also quoted a dead-ball recall figure that can only come from the public ground truth; we have not used it.</p></div></div>
+        </div>
+        <div class="callout warn">
+          <h3>Decision for the team</h3>
+          <p class="muted" style="margin-top:6px;max-width:72ch">Whether to tell the organisers about finding 1 before submitting. The recommendation in the repo is yes, together with the two open questions in the data contract.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="constraint">
+      <header><div class="eyebrow">RULES.md · organiser email</div><h2>The constraint that shapes everything</h2></header>
+      <div class="stack">
+        <div class="callout rule">
+          <h3>Parameters may only be tuned on other games</h3>
+          <p class="muted" style="margin-top:6px;max-width:70ch">The organisers' clarification email forbids training, fitting or calibrating on the ground truth or on the provided video. Scoring two variants against the public 5 minutes and keeping the better one is tuning on the ground truth. So the first thing we built was a benchmark on external matches, and every keep-or-drop decision cites that benchmark.</p>
+        </div>
+
+        <figure class="fig">
+          <div class="scroll">
+            <svg class="svg-wide" viewBox="0 0 860 392" role="img" aria-label="Two tracks. Top: external Metrica games are turned into proxy labels and degraded tracking, scored by the benchmark, and used in a loop to tune and train. Bottom: the competition match goes once through the same pipeline with frozen parameters to produce the CSV, which is validated and sanity-checked on the public five minutes. Nothing from the bottom track feeds back into parameters.">
+              <defs>
+                <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--ink-2)"/></marker>
+                <marker id="arx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--no-ink)"/></marker>
+              </defs>
+              <!-- lane 1 -->
+              <rect x="10" y="10" width="840" height="150" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+              <text x="24" y="32" class="t-head">EXTERNAL GAMES · TUNING AND TRAINING HAPPEN HERE</text>
+              <g>
+                <rect x="24" y="48" width="180" height="62" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+                <text x="34" y="70" class="t-strong">Metrica sample games</text><text x="34" y="88" class="t-sm">3 matches, corrected</text><text x="34" y="103" class="t-sm">tracking + events</text>
+                <rect x="232" y="48" width="180" height="62" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+                <text x="242" y="70" class="t-strong">Proxy labels + degrade</text><text x="242" y="88" class="t-mono-2">external.py</text><text x="242" y="103" class="t-sm">H/A/D truth, noisy input</text>
+                <rect x="440" y="48" width="180" height="62" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+                <text x="450" y="70" class="t-strong">Benchmark</text><text x="450" y="88" class="t-mono-2">bench.py · 9 cases</text><text x="450" y="103" class="t-sm">official metrics code</text>
+                <rect x="648" y="48" width="188" height="62" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+                <text x="658" y="70" class="t-strong">Tune and train</text><text x="658" y="88" class="t-sm">random search, GBM,</text><text x="658" y="103" class="t-sm">leave-one-game-out</text>
+              </g>
+              <g stroke="var(--ink-2)" stroke-width="1.5" fill="none">
+                <line x1="206" y1="79" x2="228" y2="79" marker-end="url(#ar)"/>
+                <line x1="414" y1="79" x2="436" y2="79" marker-end="url(#ar)"/>
+                <line x1="622" y1="79" x2="644" y2="79" marker-end="url(#ar)"/>
+                <path d="M742 112 V138 H530 V114" marker-end="url(#ar)"/>
+              </g>
+              <text x="636" y="152" text-anchor="middle" class="t-xs">repeat: change something, re-score, log it</text>
+              <!-- hand-off -->
+              <line x1="800" y1="112" x2="800" y2="236" stroke="var(--ink-2)" stroke-width="1.5" marker-end="url(#ar)"/>
+              <text x="792" y="196" text-anchor="end" class="t-sm">frozen parameters and model</text>
+              <!-- lane 2 -->
+              <rect x="10" y="212" width="840" height="170" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+              <text x="24" y="234" class="t-head">COMPETITION MATCH · RUN ONLY, NOTHING IS TUNED HERE</text>
+              <g>
+                <rect x="24" y="250" width="180" height="62" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+                <text x="34" y="272" class="t-strong">BAR-ATH tracking</text><text x="34" y="290" class="t-mono-2">atd.py</text><text x="34" y="305" class="t-sm">aggregates only on screen</text>
+                <rect x="232" y="250" width="180" height="62" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+                <text x="242" y="272" class="t-strong">Validate + sanity check</text><text x="242" y="290" class="t-sm">format checks, public 5 min:</text><text x="242" y="305" class="t-sm">aligned? count plausible?</text>
+                <rect x="440" y="250" width="180" height="62" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+                <text x="450" y="272" class="t-strong">&lt;team&gt;.csv</text><text x="450" y="290" class="t-mono-2">run.py</text><text x="450" y="305" class="t-sm">199,319 rows</text>
+                <rect x="648" y="250" width="188" height="62" rx="6" fill="var(--surface)" stroke="var(--line)"/>
+                <text x="658" y="272" class="t-strong">Same pipeline</text><text x="658" y="290" class="t-mono-2">model.py / learned.py</text><text x="658" y="305" class="t-sm">no parameter changes</text>
+              </g>
+              <g stroke="var(--ink-2)" stroke-width="1.5" fill="none">
+                <path d="M114 314 V346 H742 V316" marker-end="url(#ar)"/>
+                <line x1="644" y1="281" x2="624" y2="281" marker-end="url(#ar)"/>
+                <line x1="436" y1="281" x2="416" y2="281" marker-end="url(#ar)"/>
+              </g>
+              <text x="428" y="362" text-anchor="middle" class="t-xs">tracking in</text>
+              <!-- blocked feedback -->
+              <path d="M322 210 V168" fill="none" stroke="var(--no-ink)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arx)"/>
+              <line x1="313" y1="197" x2="331" y2="183" stroke="var(--no-ink)" stroke-width="2.5"/>
+              <line x1="313" y1="183" x2="331" y2="197" stroke="var(--no-ink)" stroke-width="2.5"/>
+              <text x="340" y="194" class="t-sm" style="fill:var(--no-ink)">never feeds back into parameters</text>
+            </svg>
+          </div>
+          <figcaption>The two tracks. All iteration happens on external games (top). The competition match (bottom) is run with frozen parameters; its public-window score is a correctness check and is logged, but it is not a selection signal.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="benchmark">
+      <header><div class="eyebrow">solution/external.py · solution/bench.py</div><h2>The external benchmark</h2></header>
+      <div class="stack">
+        <div class="sub">
+          <h3>Additional data: Metrica sample games 1–3</h3>
+          <div class="prose muted">
+            <p>Three anonymised professional matches published by Metrica Sports at <a href="https://github.com/metrica-sports/sample-data">github.com/metrica-sports/sample-data</a>, downloaded on 2026-11-10 into <code>external/metrica/</code> (gitignored). Each has corrected tracking at 25 fps with the ball, and synchronised event data. Game 3 is in the same EPTS format as the competition tracking.</p>
+            <p>There is no formal licence. The README asks for responsible use and acknowledgement of the source when used publicly. This goes into the technical document.</p>
+          </div>
+          <div class="tbl">
+            <table>
+              <thead><tr><th>Game</th><th class="num">Graded minutes</th><th class="num">Dead ball</th><th class="num">Possessions</th><th class="num">Per minute</th><th class="num">Mean length</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">metrica1</td><td class="num">96.7</td><td class="num">39.1%</td><td class="num">327</td><td class="num">3.38</td><td class="num">10.8 s</td></tr>
+                <tr><td class="mono">metrica2</td><td class="num">94.1</td><td class="num">41.0%</td><td class="num">310</td><td class="num">3.29</td><td class="num">10.7 s</td></tr>
+                <tr><td class="mono">metrica3</td><td class="num">95.8</td><td class="num">32.2%</td><td class="num">394</td><td class="num">4.11</td><td class="num">9.9 s</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">For comparison, the published figures for the public 5 minutes of the real match are 17 possessions (3.4 per minute) with mean length 14.2 s. Our proxy labels are in the same range but somewhat more fragmented.</p>
+        </div>
+
+        <div class="sub">
+          <h3>How the proxy H/A/D labels are derived</h3>
+          <p class="muted" style="max-width:68ch">The organisers say the real ground truth comes mechanically from corrected tracking: dead where the tracking marks the ball dead, otherwise the owning team. We mirror that as closely as the sample data allows. No one on the team labels anything by hand.</p>
+          <figure class="fig">
+            <div class="scroll">
+              <svg class="svg-wide" viewBox="0 0 820 190" role="img" aria-label="Example timeline. Events: home set piece, home pass, home pass, a brief away recovery, home recovery, home pass, away recovery, away pass, ball out of play, away set piece. The resulting label bar is dead, then home through the brief away touch, then away, then dead while the tracking has no ball, then away.">
+                <text x="10" y="22" class="t-head">EVENTS (TEAM OF EACH ON-BALL EVENT)</text>
+                <!-- event ticks -->
+                <g class="t-mono-2">
+                  <g><line x1="80" y1="34" x2="80" y2="96" stroke="var(--home)" stroke-width="2"/><text x="84" y="46">set piece</text></g>
+                  <g><line x1="150" y1="50" x2="150" y2="96" stroke="var(--home)" stroke-width="2"/><text x="154" y="62">pass</text></g>
+                  <g><line x1="230" y1="50" x2="230" y2="96" stroke="var(--home)" stroke-width="2"/><text x="234" y="62">pass</text></g>
+                  <g><line x1="300" y1="34" x2="300" y2="96" stroke="var(--away)" stroke-width="2"/><text x="304" y="46">recovery</text></g>
+                  <g><line x1="322" y1="66" x2="322" y2="96" stroke="var(--home)" stroke-width="2"/><text x="326" y="78">recovery</text></g>
+                  <g><line x1="400" y1="50" x2="400" y2="96" stroke="var(--home)" stroke-width="2"/><text x="404" y="62">pass</text></g>
+                  <g><line x1="470" y1="34" x2="470" y2="96" stroke="var(--away)" stroke-width="2"/><text x="474" y="46">recovery</text></g>
+                  <g><line x1="530" y1="50" x2="530" y2="96" stroke="var(--away)" stroke-width="2"/><text x="534" y="62">pass</text></g>
+                  <g><line x1="730" y1="34" x2="730" y2="96" stroke="var(--away)" stroke-width="2"/><text x="734" y="46">set piece</text></g>
+                </g>
+                <text x="10" y="116" class="t-sm">ball in tracking</text>
+                <rect x="80" y="104" width="520" height="8" fill="var(--ink-3)"/>
+                <rect x="730" y="104" width="80" height="8" fill="var(--ink-3)"/>
+                <text x="665" y="112" text-anchor="middle" class="t-xs">no ball (NaN)</text>
+                <text x="10" y="146" class="t-sm">proxy label</text>
+                <rect x="80" y="130" width="390" height="24" fill="var(--home)"/>
+                <rect x="470" y="130" width="130" height="24" fill="var(--away)"/>
+                <rect x="600" y="130" width="130" height="24" fill="var(--dead)"/>
+                <rect x="730" y="130" width="80" height="24" fill="var(--away)"/>
+                <rect x="300" y="126" width="22" height="32" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3 2"/>
+                <text x="311" y="176" text-anchor="middle" class="t-xs">0.9 s away touch, no pass: merged into home</text>
+                <text x="665" y="176" text-anchor="middle" class="t-xs">dead ball</text>
+              </svg>
+            </div>
+            <figcaption>The derivation on a made-up stretch of play. <b>D</b> where the corrected tracking has no ball (it is missing exactly while the ball is out of play). Otherwise the team of the most recent pass, carry, shot, recovery or set piece; challenges are ignored. A stint under 2 s by the other team with no completed pass, carry or shot, inside one team's possession, counts as an uncontrolled touch and is merged (CHALLENGE.md: a touch without control is not a change of possession). That last rule is our reading of the definition, so the benchmark also scores against labels without it.</figcaption>
+          </figure>
+        </div>
+
+        <div class="sub">
+          <h3>Making clean tracking look like ours</h3>
+          <p class="muted" style="max-width:68ch">The sample tracking is corrected and complete. Ours is automatic, with the ball missing on 41% of graded frames. Tuning on clean data would not transfer, so <code>external.degrade()</code> damages it first, using only figures the organisers publish.</p>
+          <div class="tbl">
+            <table>
+              <thead><tr><th>What is changed</th><th>How</th><th>Based on</th></tr></thead>
+              <tbody>
+                <tr><td>Ball removed in bursts during play</td><td>Two-state random process, mean gap 30–40 frames, 30–41% missing</td><td>Published: 41% of graded frames overall</td></tr>
+                <tr><td>Ball during stoppages</td><td><b>Unknown, so three invented pictures</b> (below)</td><td>Nothing: the clean data has no ball there</td></tr>
+                <tr><td>Ball position noise</td><td>Gaussian, σ = 0.25 m</td><td>Assumption</td></tr>
+                <tr><td>Players dropped in bursts</td><td>7% of the time per player, to about 20.5 tracked</td><td>Published: 20.5 objects per frame</td></tr>
+                <tr><td>Player noise</td><td>Position σ = 0.10 m, speed σ = 0.15 m/s</td><td>Assumption</td></tr>
+                <tr><td>Player identities</td><td>Never used by any feature</td><td>ATD has none</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="tbl">
+            <table>
+              <thead><tr><th>Stoppage picture</th><th>What the ball does while play is stopped</th><th class="num">Missing in play / in stoppage</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">path</td><td>Runs past the line, lies there, is brought to the restart spot, sits still</td><td class="num">41% / 41%</td></tr>
+                <tr><td class="mono">hold</td><td>Stays where it was when play stopped</td><td class="num">35% / 50%</td></tr>
+                <tr><td class="mono">hidden</td><td>Never tracked</td><td class="num">30% / 100%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">Every score is the average over 3 games × 3 pictures = <b>9 cases</b>, and each case is scored against <b>two label variants</b> (with and without the uncontrolled-touch rule). The three pictures are all inventions. Their purpose is to expose a model that depends on the invention: such a model scores differently across them. The rule that follows is that no model may use the ball to decide dead versus alive.</p>
+        </div>
+
+        <div class="sub">
+          <h3>Does the benchmark behave like the real task?</h3>
+          <figure class="fig">
+            <div class="legend" aria-hidden="true">
+              <span><i style="background:var(--s-base)"></i>published, real full match</span>
+              <span><i style="background:var(--s-ours)"></i>our external benchmark (v3)</span>
+            </div>
+            <div class="scroll">
+              <svg class="svg-mid" viewBox="0 0 700 250" role="img" aria-label="Organisers' baseline spellF1 by smoothing window. Published real-match: 0.0486, 0.1996, 0.2433, 0.2242. Our benchmark: 0.021, 0.157, 0.250, 0.264.">
+                <!-- y = 200 - v/0.3*170 -->
+                <g stroke="var(--line)"><line x1="56" y1="200" x2="690" y2="200" stroke="var(--line-strong)"/><line x1="56" y1="143.3" x2="690" y2="143.3"/><line x1="56" y1="86.7" x2="690" y2="86.7"/><line x1="56" y1="30" x2="690" y2="30"/></g>
+                <g class="t-xs" text-anchor="end"><text x="48" y="204">0</text><text x="48" y="147">0.1</text><text x="48" y="91">0.2</text><text x="48" y="34">0.3</text></g>
+                <g>
+                  <path d="M96 200V176.5Q96 172.5 100 172.5H128Q132 172.5 132 176.5V200Z" fill="var(--s-base)"><title>±0 published 0.0486</title></path>
+                  <path d="M136 200V192.1Q136 188.1 140 188.1H168Q172 188.1 172 192.1V200Z" fill="var(--s-ours)"><title>±0 benchmark 0.021</title></path>
+                  <path d="M256 200V90.9Q256 86.9 260 86.9H288Q292 86.9 292 90.9V200Z" fill="var(--s-base)"><title>±25 published 0.1996</title></path>
+                  <path d="M296 200V115.0Q296 111.0 300 111.0H328Q332 111.0 332 115.0V200Z" fill="var(--s-ours)"><title>±25 benchmark 0.157</title></path>
+                  <path d="M416 200V66.1Q416 62.1 420 62.1H448Q452 62.1 452 66.1V200Z" fill="var(--s-base)"><title>±50 published 0.2433</title></path>
+                  <path d="M456 200V62.3Q456 58.3 460 58.3H488Q492 58.3 492 62.3V200Z" fill="var(--s-ours)"><title>±50 benchmark 0.250</title></path>
+                  <path d="M576 200V77.0Q576 73.0 580 73.0H608Q612 73.0 612 77.0V200Z" fill="var(--s-base)"><title>±125 published 0.2242</title></path>
+                  <path d="M616 200V54.4Q616 50.4 620 50.4H648Q652 50.4 652 54.4V200Z" fill="var(--s-ours)"><title>±125 benchmark 0.264</title></path>
+                </g>
+                <g class="t-mono-2" text-anchor="middle">
+                  <text x="114" y="166">.049</text><text x="154" y="182">.021</text>
+                  <text x="274" y="81">.200</text><text x="314" y="105">.157</text>
+                  <text x="434" y="56">.243</text><text x="474" y="52">.250</text>
+                  <text x="594" y="67">.224</text><text x="634" y="44">.264</text>
+                </g>
+                <g class="t-sm" text-anchor="middle"><text x="134" y="222">±0 frames</text><text x="294" y="222">±25</text><text x="454" y="222">±50</text><text x="614" y="222">±125</text></g>
+                <text x="373" y="244" text-anchor="middle" class="t-xs">smoothing window of the organisers' baseline</text>
+              </svg>
+            </div>
+            <figcaption>The organisers' baseline, scored on the real match (their published numbers) and on our benchmark (E006). Same shape and similar magnitude: near zero without smoothing, a plateau from ±50. The benchmark slightly prefers ±125 where the real match prefers ±50, so it is a guide and not a replica.</figcaption>
+          </figure>
+          <p class="note">A second check, on the competition match itself: our loader reproduces the committed <code>baseline_raw.csv</code> and <code>baseline_smooth50.csv</code> labels on 100% of graded frames, and the loader's aggregates match the published figures (40.7% ball missing, 20.5 tracked objects, 46 slots, 638 tags).</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="optiona">
+      <header><div class="eyebrow">solution/model.py</div><h2>Rule-based model (Option A)</h2></header>
+      <div class="stack">
+        <div class="prose"><p>The organisers' baseline decides each frame alone and then smooths. Ours scores evidence per frame and then finds the best sequence of whole possessions. Stages, in order:</p></div>
+        <ol class="steps">
+          <li><div class="body">
+            <h3>Load into one internal format</h3>
+            <p>Ball position, player positions and speeds, team of each track slot, all in metres, plus the graded blocks. The same <code>Match</code> object is built for external games and for the competition match, so every later stage is shared.</p>
+            <span class="where">common.py · atd.py · external.py</span>
+          </div></li>
+          <li><div class="body">
+            <h3>Per-frame measurements</h3>
+            <p>Distance from the ball to the nearest home and nearest away player; ball speed (over a 6-frame span, to tame noise); mean speed of all tracked players, smoothed over 1 s; how far the ball is outside the pitch. No parameters here.</p>
+            <span class="where">model.features()</span>
+          </div></li>
+          <li><div class="body">
+            <h3>Team-control evidence</h3>
+            <p>A score that is positive when home is more likely in control. It fades to zero when nobody is near the ball or the ball is moving fast, so a pass flying past a defender says little, and a missing ball says nothing.</p>
+            <div class="formula">margin  = dist(nearest away) − dist(nearest home)
+team    = k_team · tanh(margin / s_margin)
+              · exp(−(nearest / r_near)²)        ← nobody close: no evidence
+              · 1 / (1 + (ball_speed / v_gate)²) ← ball in flight: little evidence
+team    = 0 when the ball is not tracked</div>
+            <span class="where">model.evidence()</span>
+          </div></li>
+          <li><div class="body">
+            <h3>Dead-ball evidence</h3>
+            <p>Log-odds of dead against alive, from <b>player movement only</b>: players slow down during stoppages. The ball is deliberately not used here. The external games have no ball during stoppages, so any ball-based cue would be tuned against a ball track we invented (audit finding 3).</p>
+            <div class="formula">dead = b_dead + b_slow      · (v_ref − mean player speed over 1 s)
+            + b_slow_long · (v_ref − mean player speed over 6 s)</div>
+            <span class="where">model.evidence()</span>
+          </div></li>
+          <li><div class="body">
+            <h3>Decode with Viterbi over three states</h3>
+            <p>Each half is decoded separately. The decoder picks the sequence of H, A and D that maximises total evidence minus a cost for every switch. With no evidence (ball missing), staying put is free, so possession carries through gaps. The favoured team scores 0 and the other team −|team|, so team evidence cannot tip the alive-or-dead decision (the "decoupled" variant, E007).</p>
+            <span class="where">model.viterbi3() · unit-tested against brute force</span>
+          </div></li>
+          <li><div class="body">
+            <h3>Tidy and write</h3>
+            <p>H/A spells shorter than <code>min_spell</code> frames are absorbed into a neighbouring live spell, never into dead ball. Ungraded frames get X. The second half is forced to D before its kickoff at frame 113,742 (published in the FAQ). The file is written and checked with the official validator.</p>
+            <span class="where">model.absorb_short() · run.py</span>
+          </div></li>
+        </ol>
+
+        <figure class="fig">
+          <div class="scroll">
+            <svg class="svg-mid" viewBox="0 0 640 270" role="img" aria-label="State machine with three states: home, away and dead ball. Tuned switching costs: home to away or back 3.3; alive to dead 48.7; dead to alive 35.0. Staying in a state is free.">
+              <defs><marker id="as" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--ink-2)"/></marker></defs>
+              <circle cx="150" cy="80" r="42" fill="var(--home)"/><text x="150" y="78" text-anchor="middle" style="font:600 20px var(--font-body);fill:#fff">H</text><text x="150" y="96" text-anchor="middle" style="font:12px var(--font-body);fill:#fff">home</text>
+              <circle cx="490" cy="80" r="42" fill="var(--away)"/><text x="490" y="78" text-anchor="middle" style="font:600 20px var(--font-body);fill:#fff">A</text><text x="490" y="96" text-anchor="middle" style="font:12px var(--font-body);fill:#fff">away</text>
+              <circle cx="320" cy="210" r="42" fill="var(--dead)"/><text x="320" y="208" text-anchor="middle" style="font:600 20px var(--font-body);fill:var(--dead-ink)">D</text><text x="320" y="226" text-anchor="middle" style="font:12px var(--font-body);fill:var(--dead-ink)">dead ball</text>
+              <g stroke="var(--ink-2)" stroke-width="1.5" fill="none">
+                <line x1="196" y1="70" x2="444" y2="70" marker-end="url(#as)"/>
+                <line x1="444" y1="90" x2="196" y2="90" marker-end="url(#as)"/>
+                <line x1="172" y1="118" x2="278" y2="194" marker-end="url(#as)"/>
+                <line x1="290" y1="178" x2="186" y2="104" marker-end="url(#as)" stroke-dasharray="5 4"/>
+                <line x1="468" y1="118" x2="362" y2="194" marker-end="url(#as)"/>
+                <line x1="350" y1="178" x2="454" y2="104" marker-end="url(#as)" stroke-dasharray="5 4"/>
+              </g>
+              <text x="320" y="60" text-anchor="middle" class="t-sm"><tspan class="t-strong">3.3</tspan> hand-over, either way</text>
+              <text x="196" y="176" text-anchor="end" class="t-sm"><tspan class="t-strong">48.7</tspan> play stops</text>
+              <text x="444" y="176" class="t-sm"><tspan class="t-strong">48.7</tspan> play stops</text>
+              <text x="320" y="140" text-anchor="middle" class="t-sm"><tspan class="t-strong">35.0</tspan> restart (dashed)</text>
+            </svg>
+          </div>
+          <figcaption>The decoder's three states with the tuned switching costs of the rule-based model (E007). Costs are in the same units as the per-frame evidence. Stopping and restarting play are expensive, so the model needs sustained evidence before it changes between live and dead; a hand-over is cheap by comparison.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+        <section id="tuning">
+      <header><div class="eyebrow">solution/bench.py --tune</div><h2>Tuning</h2></header>
+      <div class="stack">
+        <div class="prose">
+          <p>The rule-based model has 12 parameters. They are tuned together with a <strong>150-iteration random search</strong> on the external benchmark. The objective is mean spellF1 over the 9 cases and both label variants. The first half of the search samples the whole range; the second half samples a shrunken box around the best so far.</p>
+          <p><strong>The number we report is held-out.</strong> The whole search is repeated three times on two games each and scored on the third. The in-sample score of the final parameters is logged beside it and never quoted alone.</p>
+        </div>
+        <figure class="fig">
+          <div class="legend" aria-hidden="true"><span><i style="background:var(--s-base)"></i>organisers' baseline ±50</span><span><i style="background:var(--s-ours)"></i>rule-based model</span></div>
+          <div class="hbars" role="img" aria-label="Benchmark v3. Baseline 0.250. Rule-based symmetric scoring: held-out 0.423. Rule-based decoupled scoring: held-out 0.432, in-sample 0.426.">
+            <span class="n">Baseline ±50<small>no fitted parameters</small></span><span class="track"><span class="fill" style="width:25.0%"></span></span><span class="v">0.250</span>
+            <span class="n">Symmetric scoring, held-out<small>in-sample 0.437</small></span><span class="track"><span class="fill ours" style="width:42.3%"></span></span><span class="v">0.423</span>
+            <span class="n">Decoupled scoring, held-out<small>in-sample 0.426 · kept</small></span><span class="track"><span class="fill ours" style="width:43.2%"></span></span><span class="v">0.432</span>
+          </div>
+          <div class="axis" aria-hidden="true"><span></span><span class="ticks"><span>0</span><span>0.2</span><span>0.4</span><span>0.6</span><span>0.8</span><span>1.0</span></span><span></span></div>
+          <figcaption>E007. The two scoring variants are within noise of each other. Decoupled is kept because its score varies less across the three stoppage pictures (0.435 / 0.427 / 0.416 against 0.410 / 0.441 / 0.459).</figcaption>
+        </figure>
+
+        <div class="sub">
+          <h3>The tuned parameters (rule-based, E007 decoupled)</h3>
+          <div class="tbl">
+            <table>
+              <thead><tr><th>Parameter</th><th class="num">Value</th><th>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">k_team</td><td class="num">0.99</td><td>Weight of team evidence per frame</td></tr>
+                <tr><td class="mono">s_margin</td><td class="num">0.74 m</td><td>Distance margin at which the nearer team is clearly favoured</td></tr>
+                <tr><td class="mono">r_near</td><td class="num">2.63 m</td><td>Evidence fades when the nearest player is farther than this</td></tr>
+                <tr><td class="mono">v_gate</td><td class="num">4.7 m/s</td><td>Evidence fades when the ball is faster than this</td></tr>
+                <tr><td class="mono">b_dead</td><td class="num">−0.88</td><td>Baseline lean towards alive</td></tr>
+                <tr><td class="mono">b_slow</td><td class="num">1.07</td><td>Dead-ball lean per m/s that 1 s mean player speed is below v_ref</td></tr>
+                <tr><td class="mono">b_slow_long</td><td class="num">0.48</td><td>Same for the 6 s mean</td></tr>
+                <tr><td class="mono">v_ref</td><td class="num">2.09 m/s</td><td>Reference player speed</td></tr>
+                <tr><td class="mono">c_team</td><td class="num">3.3</td><td>Cost of a hand-over</td></tr>
+                <tr><td class="mono">c_dead / c_live</td><td class="num">48.7 / 35.0</td><td>Cost of stopping / restarting play</td></tr>
+                <tr><td class="mono">min_spell</td><td class="num">46 frames</td><td>Shorter H/A spells join a neighbouring live spell (1.8 s)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">File: <code>solution/configs/E007-decoupled.json</code>. The learned model has a smaller decoder search (evidence weight, three switch costs, minimum spell; 200 iterations), held-out in the same way. E008 values: weight 0.60, hand-over 2.2, stop 24.8, restart 23.8, minimum spell 29 frames.</p>
+        </div>
+      </div>
+    </section>
+
+        <section id="optionb">
+      <header><div class="eyebrow">solution/learned.py · solution/bench_learned.py</div><h2>Learned model (Option B)</h2></header>
+      <div class="stack">
+        <div class="prose">
+          <p>Hand-written evidence looks only at the current frame, and hand-overs are where the rule-based model loses most. The learned model looks at a window of context. It is trained <strong>only on the external games</strong>, and the same Viterbi decoder sits on top.</p>
+          <p>After the audit it is split into two models, so that the part that decides dead versus alive never sees the ball:</p>
+        </div>
+        <div class="two">
+          <div class="panel">
+            <h4>Dead model: is play stopped?</h4>
+            <ul>
+              <li><b>23 features from player movement only.</b> No ball anywhere.</li>
+              <li>Mean player speed over 0.5 to 12 s, before and after; spread of speeds; fastest player; share of slow and fast players</li>
+              <li>Team shape: spread, gap between the two centroids, how fast the block is moving</li>
+              <li>Symmetric in the two teams</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h4>Team model: given live play, who has it?</h4>
+            <ul>
+              <li><b>74 features, trained on live frames only</b>, where the ball track is real (thinned and jittered, not invented)</li>
+              <li>Now: distance margin, nearest and second-nearest players per team, ball speed and position</li>
+              <li>Before and after, over 0.5 / 1 / 2 / 4 s: share of frames each team controlled the ball, mean margin</li>
+              <li>Time since and until each team last controlled the ball</li>
+              <li>Each match used in both team orientations, so the model cannot prefer "home"</li>
+            </ul>
+          </div>
+        </div>
+        <div class="formula">P(D)  = dead model
+P(H)  = (1 − P(D)) · team model
+P(A)  = (1 − P(D)) · (1 − team model)        → log-probabilities → Viterbi decoder</div>
+        <p class="note">Both are gradient-boosted trees (scikit-learn <code>HistGradientBoostingClassifier</code>, 300 rounds, fixed seed), trained on every 4th graded frame of each game × stoppage picture. Benchmarked leave-one-game-out for the models <em>and</em> for the decoder settings.</p>
+        <figure class="fig">
+          <div class="legend" aria-hidden="true"><span><i style="background:var(--s-learn)"></i>learned model, E008</span></div>
+          <div class="hbars" role="img" aria-label="Learned model score by stoppage picture: path 0.557, hold 0.562, hidden 0.545.">
+            <span class="n">Picture: path<small>ball fetched and placed</small></span><span class="track"><span class="fill learn" style="width:55.7%"></span></span><span class="v">0.557</span>
+            <span class="n">Picture: hold<small>ball stays where it stopped</small></span><span class="track"><span class="fill learn" style="width:56.2%"></span></span><span class="v">0.562</span>
+            <span class="n">Picture: hidden<small>ball never tracked in stoppages</small></span><span class="track"><span class="fill learn" style="width:54.5%"></span></span><span class="v">0.545</span>
+          </div>
+          <div class="axis" aria-hidden="true"><span></span><span class="ticks"><span>0</span><span>0.2</span><span>0.4</span><span>0.6</span><span>0.8</span><span>1.0</span></span><span></span></div>
+          <figcaption>The check the first version could not pass: the score barely changes (spread 0.017, inside the noise band) whichever stoppage picture we invent, so the model is not leaning on the invention.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+        <section id="results">
+      <header><div class="eyebrow">solution/experiments.csv · docs/RESEARCH_LOG.md</div><h2>Results</h2></header>
+      <div class="stack">
+        <figure class="fig">
+          <div class="legend" aria-hidden="true"><span><i style="background:var(--s-base)"></i>organisers' baseline</span><span><i style="background:var(--s-ours)"></i>rule-based</span><span><i style="background:var(--s-learn)"></i>learned</span></div>
+          <div class="hbars" role="img" aria-label="Held-out spellF1 objective on benchmark v3. Baseline ±50: 0.250. Baseline ±125: 0.264. Rule-based: 0.432. Learned plus decoder: 0.551.">
+            <span class="n">Baseline ±50<small>E006</small></span><span class="track"><span class="fill" style="width:25.0%"></span></span><span class="v">0.250</span>
+            <span class="n">Baseline ±125, its best window<small>E006</small></span><span class="track"><span class="fill" style="width:26.4%"></span></span><span class="v">0.264</span>
+            <span class="n">Rule-based<small>E007 · held-out</small></span><span class="track"><span class="fill ours" style="width:43.2%"></span></span><span class="v">0.432</span>
+            <span class="n">Learned + decoder<small>E008 · held-out</small></span><span class="track"><span class="fill learn" style="width:55.1%"></span></span><span class="v">0.551</span>
+          </div>
+          <div class="axis" aria-hidden="true"><span></span><span class="ticks"><span>0</span><span>0.2</span><span>0.4</span><span>0.6</span><span>0.8</span><span>1.0</span></span><span></span></div>
+          <figcaption>Benchmark v3, held-out: mean spellF1 over both label variants on a game nothing was fitted on, averaged over the three games. These are scores on other matches with labels derived by us; they rank our variants and are not predictions of the real-match score. Gaps under about 0.02 are treated as noise.</figcaption>
+        </figure>
+
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Experiment</th><th class="num">Held-out</th><th class="num">In-sample</th><th class="num">Labels with rule / without</th><th class="num">Possessions vs truth</th><th class="num">Alive/dead F1</th><th class="num">Team accuracy</th></tr></thead>
+            <tbody>
+              <tr><td>Baseline ±50</td><td class="num">0.250</td><td class="num">n/a</td><td class="num">0.253 / 0.247</td><td class="num">×2.01</td><td class="num">0.824</td><td class="num">0.822</td></tr>
+              <tr><td>Rule-based (E007)</td><td class="num">0.432</td><td class="num">0.426</td><td class="num">0.444 / 0.407</td><td class="num">×0.60</td><td class="num">0.885</td><td class="num">0.865</td></tr>
+              <tr class="hl"><td>Learned + decoder (E008)</td><td class="num">0.551</td><td class="num">0.555</td><td class="num">0.574 / 0.536</td><td class="num">×0.74</td><td class="num">0.914</td><td class="num">0.928</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Columns after "held-out" are for the final parameters on all nine cases. Team accuracy is on frames where truth and prediction both say the ball is alive. "Possessions vs truth" below 1 means we still under-segment: real possessions get merged. That remains the main loss.</p>
+
+        <div class="sub">
+          <h3>Experiment log in brief</h3>
+          <div class="exp"><div class="top"><span class="id">E008</span><h3>Two-stage learned model + decoder</h3><span class="flag keep">current best</span></div><p><b>0.551 held-out</b> (per game 0.564 / 0.551 / 0.549). Varies by 0.017 across stoppage pictures.</p></div>
+          <div class="exp"><div class="top"><span class="id">E007</span><h3>Rule-based model after the audit fixes</h3><span class="flag">fallback</span></div><p><b>0.432 held-out</b> with decoupled scoring; 0.423 with symmetric scoring. Player-speed dead-ball evidence only.</p></div>
+          <div class="exp"><div class="top"><span class="id">E006</span><h3>Audit fixes and benchmark v3</h3><span class="flag">process change</span></div><p>Three stoppage pictures, two label variants, held-out headline, no public-score printing, bug fixes. Baseline by window ±0/±25/±50/±125: 0.021 / 0.157 / 0.250 / 0.264.</p></div>
+          <div class="exp"><div class="top"><span class="id">E001–E005</span><h3>First round, before the audit</h3><span class="flag drop">superseded</span></div><p>Reported 0.525 (rule-based) and 0.655 (learned). Inflated by dead-ball cues tuned on our own simulated ball track; withdrawn. Kept in <code>solution/experiments_v1v2_superseded.csv</code> and at the bottom of the research log for the record.</p></div>
+        </div>
+      </div>
+    </section>
+
+        <section id="match">
+      <header><div class="eyebrow">solution/run.py · solution/sanity.py</div><h2>Competition-match runs</h2></header>
+      <div class="stack">
+        <div class="prose"><p>These runs use frozen parameters and models. We look only at whether the file is well-formed and plausible, in aggregate. No per-frame data from the match is printed, and no score against the public ground truth is shown.</p></div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>File</th><th>Model</th><th class="num">Possessions</th><th class="num">Mean length</th><th class="num">D share</th><th class="num">Home share</th><th>Valid</th><th>Alignment check</th></tr></thead>
+            <tbody>
+              <tr class="hl"><td class="mono">ours_E008_learned.csv</td><td>Learned (candidate)</td><td class="num">251</td><td class="num">13.0 s</td><td class="num">48.7%</td><td class="num">0.62</td><td>yes</td><td>PASS / PASS</td></tr>
+              <tr><td class="mono">ours_E007_rules.csv</td><td>Rule-based (fallback)</td><td class="num">235</td><td class="num">15.1 s</td><td class="num">44.2%</td><td class="num">0.61</td><td>yes</td><td>PASS / PASS</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <h3>What the alignment check does</h3>
+          <p class="muted" style="margin-top:6px;max-width:72ch"><code>python -m solution.sanity &lt;file&gt;</code> compares the file with the public 5 minutes and prints PASS or FAIL for two questions: is it better than the same file with H and A swapped, and better than the same file shifted by two seconds? It prints no score, so it cannot be used to prefer one variant over another. Running the learned model twice gives byte-identical files.</p>
+        </div>
+        <div class="callout warn">
+          <h3>Unverified: the dead-ball share looks high</h3>
+          <p class="muted" style="margin-top:6px;max-width:72ch">Both files call dead ball on 44–49% of graded frames; the external games have 32–41%. The true share for this match is unpublished, and we do not measure statistics of the match to investigate. One possible cause is that the speed values in the competition tracking are distributed differently from the speeds we derive for the external games. This is an open risk, not a known fault.</p>
+        </div>
+        <p class="note">Files live in <code>evaluation/results/</code> (gitignored). The final file will be renamed <code>&lt;team_name&gt;.csv</code>.</p>
+      </div>
+    </section>
+
+    <section id="decisions">
+      <header><div class="eyebrow">Why things are the way they are</div><h2>Decisions</h2></header>
+      <div class="decisions">
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Build an external benchmark before any model</h4><p>The rules allow tuning only on other games. Without a benchmark there is no legal way to set a single threshold.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Metrica sample games as the external data</h4><p>Same provider and coordinate convention as the competition tracking, events included, freely available. Three matches, about 287 minutes. Other open sets (SkillCorner) were considered but not needed yet.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Dead ball in proxy labels = ball missing in corrected tracking</h4><p>In the sample data the ball is absent for 32–41% of each match, which is the stoppage time. This mirrors the organisers' own description of how their ground truth is made.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Score against labels with and without the uncontrolled-touch rule</h4><p>From CHALLENGE.md: a touch without control is not a change of possession. Merging sub-2-second touches without a pass is our reading of that, so the objective averages over labels with and without the rule.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>No ball-based cue for dead versus alive</h4><p>The external games have no ball during stoppages, so such a cue could only be tuned against a ball track we invented. We give up a signal that is probably useful on the real match because we cannot validate it legitimately.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Three invented stoppage pictures, averaged</h4><p>Any model that depends on what we put in the stoppage frames scores differently across them. The per-picture scores are logged for every experiment.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Held-out numbers only</h4><p>Every tuning run repeats the search leaving each game out. That mean is the number quoted.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Decode intervals with Viterbi, not per-frame smoothing</h4><p>The ranking metric counts whole possessions. A decoder with switch costs produces intervals directly and carries state through ball gaps.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Learned model as the candidate, rule-based as fallback</h4><p>0.551 against 0.432 held-out, and the learned model is the less sensitive of the two to the stoppage picture.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Decoupled scoring in the rule-based decoder</h4><p>Team evidence no longer counts as evidence that the ball is alive. Within noise on score, but less dependent on the stoppage picture.</p></div></div>
+        <div class="dec"><span class="flag drop">dropped</span><div><h4>Smart Tagging</h4><p>Standing rule: a component whose parameters cannot be validated on external data is not used. No external game has tags, so tags are out. This decision was first made the wrong way, after seeing a public-window score (audit finding 1); the rule replaces that reasoning and would have given the same answer before any run.</p></div></div>
+        <div class="dec"><span class="flag drop">dropped</span><div><h4>Video, broadcast tracking, homography</h4><p>Video needs heavy compute, and the rules bar training on it or checking output against it. Broadcast is not frame-aligned to the tactical index. Homography is only needed for video work.</p></div></div>
+        <div class="dec"><span class="flag drop">not done</span><div><h4>Measuring statistics of the competition tracking</h4><p>Might be allowed for unsupervised use, but the email does not say. Only published figures are used. Two unpublished statistics were printed early on and one influenced the benchmark (audit finding 2); they have been removed.</p></div></div>
+        <div class="dec"><span class="flag keep">chosen</span><div><h4>Force D before the second-half kickoff</h4><p>The FAQ publishes that frames 110,808–113,741 are graded and all dead ball. It is the one frame-specific constant in the code.</p></div></div>
+      </div>
+    </section>
+
+    <section id="contract">
+      <header><div class="eyebrow">docs/DATA_CONTRACT.md</div><h2>Data contract</h2></header>
+      <div class="stack">
+        <div class="tbl">
+          <table>
+            <thead><tr><th>Source</th><th>Algorithm input</th><th>Tune, train or select on it</th></tr></thead>
+            <tbody>
+              <tr><td>BAR-ATH tactical tracking</td><td>Yes</td><td><b>No</b></td></tr>
+              <tr><td>BAR-ATH Smart Tagging</td><td>Not used</td><td><b>No</b></td></tr>
+              <tr><td>BAR-ATH video, broadcast, homography</td><td>Not used</td><td><b>No</b></td></tr>
+              <tr><td>Public 5-minute ground truth</td><td>No</td><td><b>No.</b> PASS/FAIL alignment check only; no score is shown</td></tr>
+              <tr><td>Private ground truth, event data, any human-made data on this game</td><td>Never</td><td>Never</td></tr>
+              <tr class="hl"><td>Metrica sample games 1–3</td><td>n/a</td><td><b>Yes.</b> The only tuning and training data</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="two">
+          <div class="panel">
+            <h4>AI-assistant boundary</h4>
+            <ul>
+              <li>The terms forbid uploading the provided data to AI services, and this work is done with a hosted AI coding assistant.</li>
+              <li>Scripts that read <code>data/</code> or <code>cache/</code> print aggregates only: scores, counts, percentages.</li>
+              <li>The assistant does not open files in <code>data/</code>, <code>cache/</code>, or per-frame CSVs.</li>
+              <li>This page contains aggregates only.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h4>Open questions for the organisers</h4>
+            <ul>
+              <li>Is unsupervised fitting on the provided tracking allowed (for example noise or gap statistics)?</li>
+              <li>Is it acceptable for an AI assistant to see aggregate outputs of local runs?</li>
+              <li>Until answered: no to the first; the second follows the boundary on the left.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="code">
+      <header><div class="eyebrow">Branch solution</div><h2>Code and commands</h2></header>
+      <div class="stack">
+        <div class="tree">
+          <div class="row"><span class="p">docs/STATE.md</span><span class="d">Half a page: current best, in progress, next steps. Start here in a new session.</span></div>
+          <div class="row"><span class="p">docs/RESEARCH_LOG.md</span><span class="d">One entry per experiment: hypothesis, change, result, decision.</span></div>
+          <div class="row"><span class="p">docs/AUDIT_RESPONSE.md</span><span class="d">The audit, finding by finding: verdict, fix, what remains.</span></div>
+          <div class="row"><span class="p">docs/DATA_CONTRACT.md</span><span class="d">Permitted use per source, external data register, checklists.</span></div>
+          <div class="row"><span class="p">solution/common.py</span><span class="d">The <code>Match</code> format and label codes.</span></div>
+          <div class="row"><span class="p">solution/external.py</span><span class="d">Loads Metrica games, derives proxy labels, degrades tracking.</span></div>
+          <div class="row"><span class="p">solution/atd.py</span><span class="d">Loads the competition match; prints aggregates only.</span></div>
+          <div class="row"><span class="p">solution/model.py</span><span class="d">Features, rule-based evidence, Viterbi decoder, baseline re-implementation.</span></div>
+          <div class="row"><span class="p">solution/learned.py</span><span class="d">Feature matrix, training, probabilities and decoding for the learned model.</span></div>
+          <div class="row"><span class="p">solution/bench.py</span><span class="d">Benchmark and random-search tuner for the rule-based model.</span></div>
+          <div class="row"><span class="p">solution/bench_learned.py</span><span class="d">Leave-one-game-out benchmark for the learned model.</span></div>
+                    <div class="row"><span class="p">solution/run.py</span><span class="d">Writes and validates the submission CSV. Does not read the public ground truth.</span></div>
+          <div class="row"><span class="p">solution/sanity.py</span><span class="d">PASS/FAIL alignment and orientation check against the public 5 minutes.</span></div>
+          <div class="row"><span class="p">solution/tagging.py</span><span class="d">Smart Tagging priors (off).</span></div>
+          <div class="row"><span class="p">solution/experiments.csv</span><span class="d">Appended by every benchmark run; the source of every number here.</span></div>
+          <div class="row"><span class="p">solution/configs/</span><span class="d">Parameter files, one per kept experiment.</span></div>
+          <div class="row"><span class="p">solution/tests/test_core.py</span><span class="d">Decoder checked against brute force; spell absorption (including the audit bug); proxy-label derivation.</span></div>
+          <div class="row"><span class="p">external/ · cache/</span><span class="d">Downloaded games and array caches. Gitignored.</span></div>
+        </div>
+<pre class="cmds"><span class="c"># tests</span>
+python -m solution.tests.test_core
+
+<span class="c"># tune and benchmark the rule-based model (held-out is printed first)</span>
+python -m solution.bench --exp E0xx --method hmm --tune 150 --set decouple=1 --save solution/configs/E0xx.json
+
+<span class="c"># benchmark the learned model leave-one-game-out; --final also saves models trained on all games</span>
+python -m solution.bench_learned --exp E0xx --final
+
+<span class="c"># write a submission for the competition match</span>
+python -m solution.run --learned --name &lt;team_name&gt;
+python -m solution.run --params solution/configs/E007-decoupled.json --name &lt;team_name&gt;_rules
+
+<span class="c"># alignment check, PASS/FAIL only</span>
+python -m solution.sanity evaluation/results/&lt;team_name&gt;.csv</pre>
+        <p class="note">Environment: Python 3.11, numpy 1.26, pandas 2.3, scikit-learn 1.9, scipy 1.16. Dependencies are not pinned in the repo yet.</p>
+      </div>
+    </section>
+
+        <section id="next">
+      <header><div class="eyebrow">What could go wrong, and what is next</div><h2>Risks and next steps</h2></header>
+      <div class="stack">
+        <div class="two">
+          <div class="panel no">
+            <h4>Risks</h4>
+            <ul>
+              <li><b>Proxy labels are our derivation.</b> If the organisers' notion of control differs, benchmark gains may not transfer.</li>
+              <li><b>Dead-ball share on the match is high (44–49%)</b> and cannot be checked within the rules.</li>
+              <li><b>Ball cues for dead ball are given up</b>, so dead-ball detection rests on player speed alone.</li>
+              <li><b>Three external games.</b> About 1,000 possessions; enough to rank big changes, not small ones.</li>
+              <li><b>The tagging episode</b> (audit finding 1) has to be disclosed.</li>
+              <li><b>Team size.</b> Teams need 3–5 members to be eligible for the later stages.</li>
+            </ul>
+          </div>
+          <div class="panel yes">
+            <h4>Next steps</h4>
+            <ul>
+              <li>Team decision on reporting the tagging episode to the organisers; send the two open questions.</li>
+              <li>Stability of the learned model across degradation seeds and training seeds.</li>
+              <li>Hand-overs are still the main loss (possessions ×0.74): team-model features and decoder.</li>
+              <li>Technical document including the audit, pinned dependencies, one reproduction command (download external data, train, predict), clean-clone check.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">Team working notes for More than a Hack 2027, Phase 1. Benchmark numbers are held-out figures from <code>solution/experiments.csv</code> (benchmark v3); they are scores on Metrica's public sample games with labels derived by us, not scores on the competition match. Sample data © Metrica Sports, used with acknowledgement. This page contains no match data, only aggregates.</div>
+</footer>
+
+<script>
+(function () {
+  try {
+    var links = {};
+    document.querySelectorAll("#toc a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting && links[en.target.id]) {
+          Object.keys(links).forEach(function (k) { links[k].classList.remove("on"); });
+          links[en.target.id].classList.add("on");
+        }
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    document.querySelectorAll("main section[id]").forEach(function (s) { if (links[s.id]) io.observe(s); });
+  } catch (e) {}
+})();
+</script>
