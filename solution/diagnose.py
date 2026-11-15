@@ -19,7 +19,7 @@ import possession_metrics as pm  # noqa: E402
 def main():
     params = json.load(open(sys.argv[1])) if len(sys.argv) > 1 else {}
     rows = {"ours": [], "oracle-dead": [], "oracle-team": []}
-    for g, sc, F, gt in bench.cases():
+    for g, sc, F, gt, _ in bench.cases():
         pred = model.predict_hmm(F, params)
         graded = gt != X
         # oracle dead: decode team only (dead impossible), then stamp the true dead mask

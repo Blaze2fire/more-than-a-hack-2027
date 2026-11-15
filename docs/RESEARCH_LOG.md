@@ -23,7 +23,27 @@ Noise: gaps under about 0.02 are not treated as real.
 
 ---
 
-## E008 · Two-stage learned model + Viterbi · 2026-11-10 · current best
+## E014 · PipelineV4 (ball reconstruction + v4 features + Stage-2 contact/gap TemporalStacker + Viterbi4) · 2026-11-14 · current best
+**Change.** Multi-dataset `PipelineV4` architecture:
+- `solution/ball_tracker.py`: physical jump filtering + dead-ball clamping + Hermite/constellation ball reconstruction (`BallConstellationModel` fitted on clean full-pitch matches) with dual visibility/confidence encoding (preserving visible vs imputed uncertainty cues that naive replacement in `E009` destroyed).
+- `solution/features_v4.py`: strictly ball-free dead-ball kinematics (`193` cols) + `H<->A` swap-equivariant ownership features (`156` cols: multi-scale `T` Voronoi potentials, Closing Velocity, Time-to-Intercept, forward projections, last/next-touch physics).
+- `solution/temporal.py`: `TemporalStacker` (`ens3`: LightGBM + XGBoost-CUDA + CatBoost-GPU) with one-sided past/future window contrasts, 3-level causal/anticausal contact timers, and visibility-gap bridges; bit-for-bit `0.0` `H<->A` equivariance via dyadic margin quantization and `Xs_base`.
+- `solution/viterbi4.py`: 4-state restart-aware decoder `{H, A, D_H, D_A}` with separate `c_res_same` (`16.0`) vs `c_res_flip` (`15.16`) restart costs + spell repair (`min_dead=59`, `min_live_blip=26`, `min_turn=10`).
+
+**Results across benchmarks (`E010`..`E014`):**
+- **Metrica v3 3-fold LOMO (held-out, `standardize_match` before `degrade`):** **`0.5993`** objective (vs `0.5509` in `E008`), `spellF1_merged=0.6149`, `spellF1_raw=0.5837`, `macroF1=0.8707`, `aliveDeadF1=0.9281`, `teamAcc=0.9325`, `poss_ratio=0.8353`; per-game `0.6165 / 0.5955 / 0.5859`, per-scenario `path=0.5998 / hold=0.6072 / hidden=0.5908` (spread `0.0164`). Zero-shot (`DFL+8SC->Met`): `0.4463` (`0.4569` merged, `0.4357` raw).
+- **Sportec DFL v1 7-fold LOMO (nested `viterbi4`):**
+  - `natural`: `0.6429` raw / `0.6750` merged (`0.6590` obj; `J03WQQ+WR9=0.6692`), `macroF1=0.9005`, `aliveDeadF1=0.9535`, `teamAcc=0.9247`.
+  - `atd_real`: `0.5767` raw / `0.6151` merged (`0.5959` obj; `J03WQQ+WR9=0.5883`), `macroF1=0.8840`, `aliveDeadF1=0.9539`, `teamAcc=0.8984` (burst-gap `teamAcc=0.8926`).
+  - `atd_blind` / `atd_carried_dead`: `0.5223` / `0.5373` raw (`AD_F1=0.9530` / `0.9532`); live `PipelineV4` `max|logp_D(blind)-logp_D(carried_dead)| = 0.0`.
+- **WCSF Groningen zero-shot (`DFL+8SC->Gron`):** `natural` `0.6278` raw / `0.6460` merged (`teamAcc=0.9427`); `atd_real` `0.5594` raw / `0.5878` merged (`teamAcc=0.9102`).
+- **Progression on DFL 7-fold LOMO `atd_real` (raw `spellF1`):** `E008-dfl` `0.5134` -> `E009` `0.5037` -> `E010` `0.5195` -> `E011` `0.5371` -> `E012` `0.5570` -> `E013` `0.5589` -> `E014` **`0.5767`** (`0.6151` merged).
+
+**Final model & submission (`solution/configs/pipeline_v4.pkl`):**
+- Trained deterministically (`seed=0`, `--no-tags`) on all 31 confirmed matches (`7` Sportec DFL + `1` Groningen + `20` SkillCorner Current ownership + `3` Metrica Sample Games, 3-fold group OOF `TemporalStacker`). Verified reloaded `dead_leak=0.0`, `swap_diff=0.0`.
+- Submission `evaluation/results/more_than_a_hack_2027.csv`: valid format (`199,319` rows), `solution.sanity` PASS/PASS, `368` possessions (mean `9.0 s`), graded shares `H 31.7% / A 20.2% / D 48.1%`, duplicate runs produce identical `sha256` `1f5c7ea4f4fbdc297fcf23fd535225e1c8e1999a2dc002ad0e39bb882964c221`.
+
+## E008 · Two-stage learned model + Viterbi · 2026-11-10 · superseded by E014
 **Change.** `learned.py` split in two. Dead model: 23 player-kinematics features, never sees the
 ball. Team model: 74 ball-and-player features, trained on live frames only, both team
 orientations. Combined as P(D), (1−P(D))·P(H|alive), (1−P(D))·P(A|alive); same decoder.

@@ -1,52 +1,36 @@
 # Current state
 
 Read this first in a new session, then `DATA_CONTRACT.md`. Details are in `RESEARCH_LOG.md`.
-Last updated: 2026-11-10.
+Last updated: 2026-11-14.
 
 ## Where we are
-- Branch `solution`. Nothing committed yet.
-- An external audit (2026-11-10) invalidated E001–E005. Read `AUDIT_RESPONSE.md`. Only E006+
-  numbers may be quoted, and only the held-out column.
-- **Current best:** E008, two-stage learned model + Viterbi. Held-out 0.551 vs 0.432 rule-based
-  (E007) vs 0.250 organisers' baseline. Models `solution/configs/gbm.pkl`, decoder
-  `solution/configs/gbm_decode.json`.
-- **Candidate file:** `evaluation/results/ours_E008_learned.csv` (valid, sanity PASS/PASS,
-  251 possessions, D 48.7%). Fallback: `ours_E007_rules.csv`.
-- **Team notebook artifact:** https://claude.ai/artifact/STvW9zFXtn74ia4XrfgH6E
-  Source: `docs/pipeline-notebook.html`. After each kept experiment, edit that file and republish
-  to the same URL (Artifact tool, `url` = the link above).
+- Branch `solution`. E014 `PipelineV4` (`ball_tracker` + `features_v4` + Stage-1 `ens3` + Stage-2 `TemporalStacker` `ens3` + 4-state restart-aware `viterbi4`) implemented, verified, and trained cleanly.
+- An external audit (2026-11-10) invalidated E001–E005. Read `AUDIT_RESPONSE.md`. Only E006+ numbers may be quoted, and only held-out/zero-shot external numbers.
+- **Current best (`E014`):**
+  - **Metrica v3 3-fold LOMO (held-out):** `0.5993` objective (`0.6149` merged, `0.5837` raw) vs `0.5509` (E008) vs `0.4316` (E007) vs `0.2498` (E006 ±50 baseline). `macroF1=0.8707`, `aliveDeadF1=0.9281`, `teamAcc=0.9325`, `poss_ratio=0.8353`. Zero-shot (`DFL+8SC->Met`): `0.4463` (`0.4569` merged, `0.4357` raw).
+  - **Sportec DFL v1 7-fold LOMO:** `natural` `0.6429` raw / `0.6750` merged (`0.6590` obj; `J03WQQ+WR9=0.6692`); `atd_real` `0.5767` raw / `0.6151` merged (`0.5959` obj; `J03WQQ+WR9=0.5883`; `teamAcc=0.8984`, `aliveDeadF1=0.9539`).
+  - **Groningen zero-shot (`DFL+8SC->Gron`):** `natural` `0.6278` raw / `0.6460` merged (`teamAcc=0.9427`); `atd_real` `0.5594` raw / `0.5878` merged (`teamAcc=0.9102`).
+- **Final trained artifacts:** `solution/configs/pipeline_v4.pkl` (trained deterministically on all 31 confirmed matches: 7 Sportec DFL + WCSF Groningen + 20 SkillCorner Current + 3 Metrica Sample Games, `seed=0`, `--no-tags`) and `solution/configs/viterbi4.json`.
+- **Submission file:** `evaluation/results/more_than_a_hack_2027.csv` (validated OK, `solution.sanity` PASS/PASS, `368` possessions, mean `9.0 s`, `D 48.1%` graded / `38.3%` total, home share `0.61`, deterministic duplicate `sha256`: `1f5c7ea4f4fbdc29...`).
 
 ## Standing rules (from the audit)
-- No ball-based cue for dead vs alive: the external games have no ball during stoppages.
-- A component whose parameters cannot be validated on external data is not used (Smart Tagging).
-- Never print a public-ground-truth score. `python -m solution.sanity <csv>` gives PASS/FAIL.
+- No ball-based cue for dead vs alive: verified `dead_leak = 0.0` (`atd_blind` vs `atd_carried_dead`) in unit tests and on reloaded `PipelineV4`.
+- Equivariant H/A scoring: verified `swap_diff = 0.0` in `test_core.py` and on reloaded `PipelineV4`.
+- Smart Tagging stays OFF (`--no-tags` default): no external game has matching tags.
+- Never print a public-ground-truth score. `python -m solution.sanity <csv>` gives PASS/FAIL only.
 - Do not compute unpublished statistics of the competition match.
-- Quote held-out numbers only.
 
 ## How to run things
 | What | Command |
 |---|---|
-| Tests | `python -m solution.tests.test_core` |
-| Tune + benchmark the rule-based model | `python -m solution.bench --exp <id> --method hmm --tune 150 --set decouple=1 --save <json>` |
-| Benchmark the learned model | `python -m solution.bench_learned --exp <id> [--final]` |
-| Write a submission (learned) | `python -m solution.run --learned --name <name>` |
-| Write a submission (rule-based) | `python -m solution.run --params <json> --name <name>` |
-| Alignment check | `python -m solution.sanity evaluation/results/<name>.csv` |
+| Install solution environment | `pip install -r solution/requirements.txt` (evaluation keeps root `requirements.txt` minimal) |
+| Tests | `.venv/bin/python -m solution.tests.test_core` |
+| Reproduce final PipelineV4 weights | `.venv/bin/python -m solution.train_v4` |
+| Write final submission (PipelineV4 default) | `.venv/bin/python -m solution.run --learned --name more_than_a_hack_2027` |
+| Format check | `.venv/bin/python evaluation/validate_submission.py evaluation/results/more_than_a_hack_2027.csv` |
+| Alignment & orientation check | `.venv/bin/python -m solution.sanity evaluation/results/more_than_a_hack_2027.csv` |
+| Benchmark rule-based / E008 legacy | `.venv/bin/python -m solution.bench_learned --exp <id>` |
 
-## Next steps
-1. Team decision: report the tagging episode to the organisers (AUDIT_RESPONSE.md, finding 1).
-2. Stability of E008 across degradation seeds and training seeds.
-3. Hand-over detection is still the main loss (possessions ×0.74): team-model features, decoder.
-4. Technical document (must disclose the audit and the tagging episode), pinned dependencies,
-   one reproduction command (download external data, train, predict), clean-clone check.
-
-## Open questions
-- Organisers: is unsupervised fitting on the provided tracking allowed? May an AI assistant see
-  aggregate outputs? (DATA_CONTRACT.md section 5)
-- Team name for the output files.
-
-## Known risks
-- Proxy labels on external games are our derivation, not the organisers' definition.
-- D share on the competition match (48.7%) is above the external games (32–41%) and cannot be
-  checked within the rules.
-- Three external games only.
+## Notes & open items
+- See `DATA_CONTRACT.md` for full external dataset inventory (Sportec DFL v1, ELASTIC, WCSF Groningen, SkillCorner Current, Metrica 1-3) and section 5 organizer questions.
+- On `atd_real` DFL LOMO (`0.5767` raw / `0.6151` merged), short deflections (`<= 35f`) and ~0.58s burst gaps remain the gap to `oracle_dead=0.6465` / `oracle_team=0.8952`.

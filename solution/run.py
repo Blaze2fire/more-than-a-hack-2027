@@ -17,19 +17,29 @@ import os
 
 import numpy as np
 
-from . import atd, learned, model, tagging
+from . import atd, datasets, learned, model, pipeline_v4, tagging
 from .common import D, LETTERS, ROOT, X
 
 import possession_metrics as pm  # noqa: E402
 import baseline as starter_baseline  # noqa: E402
 
 RESULTS = os.path.join(ROOT, "evaluation", "results")
+PIPELINE_V4_PATH = os.path.join(os.path.dirname(__file__), "configs", "pipeline_v4.pkl")
+VITERBI4_CFG_PATH = os.path.join(os.path.dirname(__file__), "configs", "viterbi4.json")
 
 
-def predict(m, params, method="hmm", use_tags=True):
+def predict(m, params, method="learned", use_tags=False):
     if method == "learned":
-        cfg = json.load(open(os.path.join(os.path.dirname(learned.MODEL_PATH), "gbm_decode.json")))
-        codes = learned.decode(learned.log_proba(learned.load(), m), m.blocks, cfg)
+        if os.path.exists(PIPELINE_V4_PATH):
+            m_std = datasets.standardize_match(m)
+            pipe = pipeline_v4.PipelineV4.load(PIPELINE_V4_PATH)
+            if os.path.exists(VITERBI4_CFG_PATH):
+                with open(VITERBI4_CFG_PATH) as f:
+                    pipe.decode_cfg = json.load(f)
+            codes = pipe.predict(m_std)
+        else:
+            cfg = json.load(open(os.path.join(os.path.dirname(learned.MODEL_PATH), "gbm_decode.json")))
+            codes = learned.decode(learned.log_proba(learned.load(), m), m.blocks, cfg)
         codes[m.blocks[1][0]:atd.KICKOFF_2ND] = D
         return codes
     F = model.features(m)
@@ -47,10 +57,12 @@ def predict(m, params, method="hmm", use_tags=True):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--params", help="JSON parameter file")
-    ap.add_argument("--method", default="hmm", choices=("hmm", "baseline", "learned"))
+    ap.add_argument("--method", default="learned", choices=("hmm", "baseline", "learned"))
     ap.add_argument("--learned", action="store_true", help="shorthand for --method learned")
     ap.add_argument("--tags", action="store_true",
-                    help="enable Smart Tagging priors (off by default: weights cannot be tuned)")
+                    help="enable Smart Tagging priors (off by default: domain-shift safety)")
+    ap.add_argument("--no-tags", action="store_false", dest="tags",
+                    help="disable Smart Tagging priors (default)")
     ap.add_argument("--name", required=True)
     args = ap.parse_args()
 

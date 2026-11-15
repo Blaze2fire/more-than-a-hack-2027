@@ -15,7 +15,11 @@ then the other docs. If a use is not clearly allowed here, it is not allowed unt
 | BAR-ATH video (both) | `data/*.mp4` | not used | **no** | We do not decode it, train on it, or check output against it. |
 | Public 5-min ground truth | `evaluation/gt/*_public.csv` | no | **no** | Correctness check only (see 3). |
 | Private ground truth, event data or any human-made data about this game | n/a | **never** | **never** | |
-| Metrica sample games 1–3 | `external/metrica/` | n/a | **yes** | Other games. The only tuning and model-selection data. |
+| Sportec Open DFL / IDSSE v1 (7 matches) | `external/sportec-dfl-v1/` | n/a | **yes** | 25 Hz TRACAB tracking + provider `BallStatus`/`BallPossession`. Primary DFL benchmark & dead+team supervision. |
+| ELASTIC benchmark annotations (3 DFL matches) | `external/elastic-annotations/` | n/a | **yes** | Human-checked reception/kick indices for `J03WMX`, `J03WN1`, `J03WPY`; used for boundary sample weighting only. |
+| WCSF Groningen / SciSports (1 match) | `external/wcsf-groningen/` | n/a | **yes** | 10 Hz -> 25 Hz manual `AliveFlag`/`PossessionFlag`; zero-shot transfer test & full supervision. |
+| SkillCorner Open Data — Current (20 matches) | `external/skillcorner-current/` | n/a | **team head only** | 10 Hz -> 25 Hz live-frame `possession.group` (`has_real_dead_ball=False`); team model only, never dead head. |
+| Metrica sample games 1–3 (3 matches) | `external/metrica/` | n/a | **yes** | 25 Hz tracking + XML events (`solution/external.py`). Used per user confirmation alongside CC BY 4.0 / MIT datasets. |
 
 Published facts about the match that we do use as constants, because the docs state them:
 graded blocks (11,185–90,651 and 110,808–190,197), the second-half kickoff at 113,742 with all `D`
@@ -28,7 +32,11 @@ No other constants tied to specific frames of this match.
 
 | Dataset | Source | Licence / terms | Labels | Amount |
 |---|---|---|---|---|
-| Metrica Sports sample data, Games 1, 2, 3 | https://github.com/metrica-sports/sample-data (downloaded 2026-11-10) | No formal licence. README: "be responsible with the use of this data" and acknowledge the source if used publicly. Anonymised. | Corrected tracking and event data produced by Metrica. Our H/A/D labels are derived from them by `solution/external.py` (no hand labelling by us). | 3 matches, about 287 minutes |
+| Sportec Open DFL / IDSSE v1 (`J03WMX`, `J03WN1`, `J03WOH`, `J03WOY`, `J03WPY`, `J03WQQ`, `J03WR9`) | Figshare article 28196177 v1 / Bassek et al. (2025) / PySport mirror | **CC BY 4.0** | 25 Hz `BallStatus` (`0` D, `1` alive) & `BallPossession` (`1` H, `2` A), dead precedence (`solution/datasets.py`) | 7 complete 25 Hz matches |
+| ELASTIC benchmark | `hyunsungkim-ds/elastic` (`e245224aad74`) | **CC BY 4.0** | Human-median kick & reception frame indices on `J03WMX`, `J03WN1`, `J03WPY` (boundary weights only) | 3,561 event rows across 3 matches |
+| WCSF Groningen / SciSports | `MatKempeGroningen/WCSF_SolutionRoom` (`1c9ba798f98a`) | **MIT** (owner-confirmed) | Manual `AliveFlag` & `PossessionFlag` (`10 Hz` resampled cleanly to `25 Hz`, unresolved flags masked `X`) | 1 complete anonymised match |
+| SkillCorner Open Data (Current 2024/25 A-League) | `SkillCorner/opendata` (`4340d2745728`) | **MIT** | `possession.group` on live tracked frames (`has_real_dead_ball=False`; ownership head only) | 20 matches |
+| Metrica Sports sample data, Games 1, 2, 3 | https://github.com/metrica-sports/sample-data (downloaded 2026-11-10) | Acknowledge source; explicitly included per user confirmation | Corrected tracking and event data; H/A/D labels derived by `solution/external.py` (merged + raw) | 3 matches, ~287 minutes |
 
 How the proxy labels are derived: `D` where the corrected tracking has no ball; otherwise the team
 of the most recent on-ball event (pass, carry, shot, recovery, set piece). A stint under 2 s by the
@@ -85,7 +93,7 @@ Before each experiment:
 
 Before submission:
 - [ ] `git status` shows no files from `data/`, `cache/`, `external/`, or result CSVs.
-- [ ] A clean clone plus the data bundle regenerates the identical CSV (same sha256).
+- [ ] A clean clone plus the data bundle regenerates the identical CSV (same sha256) via `.venv/bin/python -m solution.train_v4 && .venv/bin/python -m solution.run --learned --name more_than_a_hack_2027`.
 - [ ] `python evaluation/validate_submission.py <team>.csv` passes on the exact upload.
 - [ ] The technical document lists every dataset in section 2 and the proxy-label derivation.
-- [ ] Dependencies are pinned.
+- [ ] Dependencies are pinned in `solution/requirements.txt` (keeping root `requirements.txt` minimal for `evaluation/`).
