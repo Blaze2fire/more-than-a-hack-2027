@@ -1,5 +1,14 @@
 # Data contract
 
+**2026-11-17 implementation update:** the internal deadline review
+records current model ancestry audits, fixed external splits and participant
+source corrections. The legacy all31 artifact is preserved; the corrected
+trainer is a new recipe. External cache use is limited to explicitly registered
+public fixtures through their loaders; `BAR-ATH_tactical.npz` remains restricted.
+SkillCorner confirmation scores ownership on native known-live frames only,
+without interpreting unknown frames as dead. Inference now prints validation
+and hashes only. Public-sample scores remain prohibited selection evidence.
+
 What each data source may be used for, so that nothing we submit breaks the competition rules.
 Authority, in order: the organisers' clarification email (bottom of `RULES.md`), then `RULES.md`,
 then the other docs. If a use is not clearly allowed here, it is not allowed until we ask.
@@ -15,11 +24,11 @@ then the other docs. If a use is not clearly allowed here, it is not allowed unt
 | BAR-ATH video (both) | `data/*.mp4` | not used | **no** | We do not decode it, train on it, or check output against it. |
 | Public 5-min ground truth | `evaluation/gt/*_public.csv` | no | **no** | Correctness check only (see 3). |
 | Private ground truth, event data or any human-made data about this game | n/a | **never** | **never** | |
-| Sportec Open DFL / IDSSE v1 (7 matches) | `external/sportec-dfl-v1/` | n/a | **yes** | 25 Hz TRACAB tracking + provider `BallStatus`/`BallPossession`. Primary DFL benchmark & dead+team supervision. |
-| ELASTIC benchmark annotations (3 DFL matches) | `external/elastic-annotations/` | n/a | **yes** | Human-checked reception/kick indices for `J03WMX`, `J03WN1`, `J03WPY`; used for boundary sample weighting only. |
-| WCSF Groningen / SciSports (1 match) | `external/wcsf-groningen/` | n/a | **yes** | 10 Hz -> 25 Hz manual `AliveFlag`/`PossessionFlag`; zero-shot transfer test & full supervision. |
-| SkillCorner Open Data — Current (20 matches) | `external/skillcorner-current/` | n/a | **team head only** | 10 Hz -> 25 Hz live-frame `possession.group` (`has_real_dead_ball=False`); team model only, never dead head. |
-| Metrica sample games 1–3 (3 matches) | `external/metrica/` | n/a | **yes** | 25 Hz tracking + XML events (`solution/external.py`). Used per user confirmation alongside CC BY 4.0 / MIT datasets. |
+| Sportec Open DFL / IDSSE v1 (7 matches) | `external/sportec-dfl-v1/` | Verified on disk (`2.5G`, 21 XMLs; 7 `.npz` caches) | **yes** | 25 Hz TRACAB tracking + provider `BallStatus`/`BallPossession`. Primary DFL benchmark & dead+team supervision. |
+| ELASTIC benchmark annotations (3 DFL matches) | `external/elastic-annotations/` | `e245224aad7450961eca40954ae2bc85e1e6e696` (`6.4M`) | **yes** | Human-checked reception/kick indices for `J03WMX`, `J03WN1`, `J03WPY`; used for boundary sample weighting only. |
+| WCSF Groningen / SciSports (1 match) | `external/wcsf-groningen/` | Verified on disk (`45M`, 2 zips; `143,431`-frame cache) | **yes** | 10 Hz -> 25 Hz manual `AliveFlag`/`PossessionFlag`; zero-shot transfer test & full supervision. |
+| SkillCorner Open Data — Current (20 matches) | `external/skillcorner-current/` | `4340d274572876239c154c90bc507a9b3250a656` (`1.9G`; 20 `.npz` caches) | **team head only** | 10 Hz -> 25 Hz live-frame `possession.group` (`has_real_dead_ball=False`); team model only, never dead head. |
+| Metrica sample games 1–3 (3 matches) | `external/metrica/` (`metrica-sample-data/`) | `e706dd506b360d69d9d123d5b8026e7294b13996` (`245M`; 3 `.npz` caches) | **yes (`--no-metrica` to exclude)** | 25 Hz tracking + XML events (`solution/external.py`). Included per user confirmation (`EXTERNAL_TRAINING_DATA.md` notes unverified redistribution terms; Elvern excluded). |
 
 Published facts about the match that we do use as constants, because the docs state them:
 graded blocks (11,185–90,651 and 110,808–190,197), the second-half kickoff at 113,742 with all `D`
@@ -92,8 +101,19 @@ Before each experiment:
 - [ ] Any new external dataset is added to section 2 first.
 
 Before submission:
-- [ ] `git status` shows no files from `data/`, `cache/`, `external/`, or result CSVs.
-- [ ] A clean clone plus the data bundle regenerates the identical CSV (same sha256) via `.venv/bin/python -m solution.train_v4 && .venv/bin/python -m solution.run --learned --name more_than_a_hack_2027`.
+- [ ] `git status` shows no files from `data/`, `cache/`, `external/`, `Elvern-latest-submission/`, or result CSVs.
+- [ ] Freeze the selected model, decoder and provenance. A clean checkout plus the
+  appropriate external/data assets regenerates the identical CSV via the exact
+  artifact-specific commands recorded in the experiment report. The new
+  `train_v4` recipe must not be presented as the old E014 artifact reproducer.
 - [ ] `python evaluation/validate_submission.py <team>.csv` passes on the exact upload.
 - [ ] The technical document lists every dataset in section 2 and the proxy-label derivation.
 - [ ] Dependencies are pinned in `solution/requirements.txt` (keeping root `requirements.txt` minimal for `evaluation/`).
+
+## Verified local external assets & migrated Elvern docs (2026-11-16)
+- **Additional verified external folders (`external/`, symlinked from a local training-data folder, `5.6G` total):**
+  - `external/skillcorner-legacy/` (`1ed50b775f93075c2a6d00d0d795f13b7b89709e`, `629M`, 9 matches) — archived, unused by `PipelineV4`.
+  - `external/pathcrf-synced-events/` (`1b7c6f85a6b78c92e4543fde72ca2b86a933f997`, `183M`) — MPL-2.0 synced events & PathCRF assets.
+  - `external/soccertrack-v2/experiment-128m/` (`259M`) — `5` BAS JSONs (`117092..128057`) + `2` GSR 128 MiB prefixes (`117092`, `118576`) verified; `3` GSR prefixes (`117093`, `118575`, `128057`) are empty (`total 0`) due to Google Drive `QUOTA_EXCEEDED` and HTTP `401` HF gating (`atomscott/soccertrack-v2`); unused by `PipelineV4` and non-blocking.
+- **Preprocessed `.npz` caches (`cache/`, `790M`, `31` files):** `7` DFL (`dfl_*_v1.npz`), `1` Groningen (`wcsf_groningen_25hz_v1.npz`), `3` Metrica (`ext3_metrica{1,2,3}.npz`), `20` SkillCorner Current (`sc_cur_*_25hz_v1.npz`).
+- **Migrated governance & documentation:** `ORGANIZER-CLARIFICATION.md` and `research/` (`15` files, `180K`) copied from `Elvern-latest-submission/` (git-ignored); see `docs/ELVERN_EXPERIMENTS_SUMMARY.md` and `docs/TEAM_AND_PARTICIPANT_SYNTHESIS.md` for full experimental & participant synthesis.

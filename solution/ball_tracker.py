@@ -118,9 +118,6 @@ def _estimate_ball_velocities(clean_ball: np.ndarray, b0: int, b1: int) -> np.nd
     nb = b1 - b0
     v = np.zeros((nb, 2), dtype=np.float32)
     ok = np.isfinite(sub[:, 0])
-    # Central smooth over +/-3 frames where clean
-    for k in range(3):
-        pass
     idx = np.where(ok)[0]
     if len(idx) < 2:
         return v
@@ -148,7 +145,7 @@ def extract_constellation_features(m: Match, vel: Optional[np.ndarray] = None) -
 
     Returns:
       anchor_xy: (n, 2) metres (local player-density peak, smooth fallback to median)
-      feats:     (n, 28) float32 team-symmetric features around anchor_xy & pitch
+      feats:     (n, 29) float32 team-symmetric features around anchor_xy & pitch
     """
     n, s, _ = m.pos.shape
     pitch_l, pitch_w = m.pitch
@@ -487,6 +484,10 @@ def reconstruct_ball(
         glen = np.zeros(nb, dtype=np.float32)
 
         vis_idx = np.where(sub_vis)[0]
+        if len(vis_idx) == 0:
+            # A fully hidden block is one long gap, not a sequence of zero gaps.
+            # The optional 2-12s ball-free router relies on this distinction.
+            glen[:] = nb
         if len(vis_idx) > 0:
             v_est = _estimate_ball_velocities(clean_b, b0, b1)
             out[vis_idx] = sub_c[vis_idx]

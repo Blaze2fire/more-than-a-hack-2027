@@ -1,11 +1,12 @@
 """Produce the submission CSV for the competition match.
 
-    python -m solution.run --params solution/configs/final.json --name <team_name>
+    python -m solution.run --learned --pipeline solution/configs/pipeline_final.pkl --name more_than_a_hack_2027
 
-    python -m solution.run --learned --name <team_name>          # Option B (configs/gbm.pkl)
+`--learned` without `--pipeline` also uses configs/pipeline_final.pkl. The rule-based methods
+(`--method hmm|baseline`, `--params <json>`) are historical references only.
 
-Writes evaluation/results/<name>.csv, validates it with the official checks, and prints an
-aggregate summary of the file itself. It does NOT score against the public ground truth: an
+Writes evaluation/results/<name>.csv, validates it with the official checks, and prints its hash.
+It does NOT score against the public ground truth: an
 earlier version printed that score on every run, which put a selection signal in front of us each
 time we compared two variants (audit finding, RESEARCH_LOG E006). The alignment check lives in
 solution/sanity.py and reports pass/fail only.
@@ -24,22 +25,26 @@ import possession_metrics as pm  # noqa: E402
 import baseline as starter_baseline  # noqa: E402
 
 RESULTS = os.path.join(ROOT, "evaluation", "results")
-PIPELINE_V4_PATH = os.path.join(os.path.dirname(__file__), "configs", "pipeline_v4.pkl")
+PIPELINE_V4_PATH = os.path.join(os.path.dirname(__file__), "configs", "pipeline_final.pkl")  # shipped artifact
 VITERBI4_CFG_PATH = os.path.join(os.path.dirname(__file__), "configs", "viterbi4.json")
 
 
-def predict(m, params, method="learned", use_tags=False):
+def predict(m, params, method="learned", use_tags=False, pipeline_path=None, decode_cfg=None):
     if method == "learned":
-        if os.path.exists(PIPELINE_V4_PATH):
+        model_path = pipeline_path or PIPELINE_V4_PATH
+        if pipeline_path and not os.path.isfile(model_path):
+            raise FileNotFoundError(model_path)
+        if os.path.exists(model_path):
             m_std = datasets.standardize_match(m)
-            pipe = pipeline_v4.PipelineV4.load(PIPELINE_V4_PATH)
-            if os.path.exists(VITERBI4_CFG_PATH):
-                with open(VITERBI4_CFG_PATH) as f:
+            pipe = pipeline_v4.PipelineV4.load(model_path)
+            # A sidecar changed during an experiment must not silently replace
+            # the decoder belonging to a frozen, previously validated artifact.
+            if decode_cfg:
+                with open(decode_cfg) as f:
                     pipe.decode_cfg = json.load(f)
             codes = pipe.predict(m_std)
         else:
-            cfg = json.load(open(os.path.join(os.path.dirname(learned.MODEL_PATH), "gbm_decode.json")))
-            codes = learned.decode(learned.log_proba(learned.load(), m), m.blocks, cfg)
+            raise FileNotFoundError(f"Frozen PipelineV4 artifact missing: {model_path}")
         codes[m.blocks[1][0]:atd.KICKOFF_2ND] = D
         return codes
     F = model.features(m)
@@ -64,26 +69,22 @@ def main():
     ap.add_argument("--no-tags", action="store_false", dest="tags",
                     help="disable Smart Tagging priors (default)")
     ap.add_argument("--name", required=True)
+    ap.add_argument("--pipeline", help="Explicit frozen PipelineV4 artifact; default uses configs/pipeline_final.pkl")
+    ap.add_argument("--decode-cfg", help="Explicit decoder override; default keeps the artifact's own decoder")
     args = ap.parse_args()
 
     params = json.load(open(args.params)) if args.params else {}
     m = atd.load()
-    codes = predict(m, params, "learned" if args.learned else args.method, args.tags)
+    codes = predict(m, params, "learned" if args.learned else args.method, args.tags,
+                    pipeline_path=args.pipeline, decode_cfg=args.decode_cfg)
     path = starter_baseline.write_submission(os.path.join(RESULTS, args.name + ".csv"),
                                              LETTERS[codes])
 
     table = pm.read_label_csv(path)
     reason = pm.validate_submission(table, m.n)
     print("validation: %s" % (reason or "OK"))
-    graded = np.zeros(m.n, dtype=bool)
-    for b0, b1 in m.blocks:
-        graded[b0:b1] = True
-    runs = [(a, b) for a, b in m.blocks]
-    stats = pm.possession_stats(codes, runs)
-    share = {LETTERS[k]: round(100 * float(np.mean(codes[graded] == k)), 1) for k in (0, 1, 2, 3)}
-    print("graded label share %%: %s" % share)
-    print("possessions %d  mean %.1f s  home share %.2f" % (
-        stats["n_spells"], stats["mean_duration_s"], stats["home_share"]))
+    if reason:
+        raise SystemExit(1)
     print("sha256 %s" % hashlib.sha256(open(path, "rb").read()).hexdigest()[:16])
 
 

@@ -1,5 +1,21 @@
 # More than a Hack 2027 — Phase 1: Ball Possession
 
+Team implementation: [current state](docs/STATE.md) and [reproduction guide](docs/REPRODUCE.md).
+The [data contract](docs/DATA_CONTRACT.md) governs our solution experiments.
+Technical document: [docs/more_than_a_hack_2027.md](docs/more_than_a_hack_2027.md).
+
+**Reproduce our submission** (data bundle unpacked into `data/`, Python 3.11, CUDA GPU):
+
+```bash
+python -m venv .venv && .venv/bin/pip install -r solution/requirements.txt
+.venv/bin/python -m solution.run --learned --pipeline solution/configs/pipeline_final.pkl --name more_than_a_hack_2027
+.venv/bin/python evaluation/validate_submission.py evaluation/results/more_than_a_hack_2027.csv
+```
+
+The frozen artifact `solution/configs/pipeline_final.pkl` is committed. Inference is deterministic, and
+the expected CSV hash is recorded in `solution/configs/pipeline_final.pkl.provenance.json`. Retraining it from
+the public external data is described in section 8 of the technical document.
+
 **Organised by [Metrica Sports](https://metrica-sports.com), [FC Barcelona](https://www.fcbarcelona.com)
 and the [Mobile World Capital Barcelona](https://www.mwcbarcelona.com)**, at the Talent Arena in Barcelona.
 

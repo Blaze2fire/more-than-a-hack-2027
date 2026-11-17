@@ -684,3 +684,117 @@ def degrade_atd(
         gt=gt.copy() if gt is not None else None,
         meta=dict(m.meta, scenario=scenario, seed=seed),
     )
+
+
+def augment_long_burst_gaps(
+    m: Match,
+    seed: int = 0,
+    prob: float = 0.45,
+    gap_range: Tuple[int, int] = (125, 750),
+    retain_range: Tuple[int, int] = (200, 550),
+) -> Match:
+    """Inject 5-30s ball dropouts during training without changing benchmark presets."""
+    if prob <= 0.0:
+        return m
+    rng = np.random.default_rng(seed)
+    ball = m.ball.copy()
+    g_lo, g_hi = int(gap_range[0]), int(gap_range[1])
+    r_lo, r_hi = int(retain_range[0]), int(retain_range[1])
+    for b0, b1 in m.blocks:
+        if rng.random() > prob:
+            continue
+        cursor = b0 + int(rng.integers(r_lo, r_hi + 1))
+        while cursor < b1:
+            width = int(rng.integers(g_lo, g_hi + 1))
+            ball[cursor : min(b1, cursor + width)] = np.nan
+            cursor += width + int(rng.integers(r_lo, r_hi + 1))
+    return Match(
+        name=m.name,
+        ball=ball,
+        pos=m.pos,
+        spd=m.spd,
+        team=m.team,
+        blocks=list(m.blocks),
+        pitch=m.pitch,
+        gt=m.gt,
+        meta=dict(m.meta, long_burst_seed=seed),
+    )
+
+
+def fragment_player_tracks(
+    pos: np.ndarray,
+    team: np.ndarray,
+    blocks: List[Tuple[int, int]],
+    rng: np.random.Generator,
+    min_slots: int = 46,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Reassign complete team tracklets to spare slots without changing positions.
+
+    This is shared by the opt-in unified Metrica degradation and does not alter
+    historical benchmark presets. Team membership is preserved at every frame.
+    """
+    counts = [int(np.sum(team == t)) for t in (H, A)]
+    slots_per_team = max((min_slots + 1) // 2, *counts)
+    out = np.full((len(pos), 2 * slots_per_team, 2), np.nan, dtype=np.float32)
+    new_team = np.repeat(np.array([H, A], dtype=np.int8), slots_per_team)
+    for code in (H, A):
+        cols = np.flatnonzero(team == code)
+        offset = code * slots_per_team
+        for a, b in blocks:
+            mapping = rng.permutation(slots_per_team)[:len(cols)] + offset
+            cursor = a
+            while cursor < b:
+                stop = min(b, cursor + int(rng.integers(125, 451)))
+                out[cursor:stop, mapping] = pos[cursor:stop, cols]
+                free = np.setdiff1d(np.arange(offset, offset + slots_per_team), mapping)
+                if len(cols) and len(free):
+                    mapping[int(rng.integers(len(cols)))] = int(rng.choice(free))
+                cursor = stop
+    return out, new_team
+
+
+def augment_stoppage_ball(m: Match, seed: int = 0) -> Match:
+    """External-only ball-motion augmentation to break frozen-stoppage shortcuts.
+
+    Randomly hide, carry, or smoothly drift the ball in each labelled stoppage.
+    Fixed 21-frame, degree-2 Savitzky-Golay smoothing on finite ball runs also
+    exposes ownership to smoothed tracking. Player arrays and labels are kept.
+    This is a training recipe, never an evaluation scenario or inference fit.
+    """
+    if m.gt is None:
+        raise ValueError("Stoppage augmentation requires labelled external data")
+    from scipy.signal import savgol_filter
+
+    rng = np.random.default_rng(seed)
+    ball = m.ball.copy()
+    for a, b in m.blocks:
+        dead = m.gt[a:b] == D
+        edges = np.diff(np.r_[False, dead, False].astype(np.int8))
+        for start, stop in zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)):
+            s, e = a + int(start), a + int(stop)
+            mode = int(rng.integers(3))
+            if mode == 0:
+                ball[s:e] = np.nan
+                continue
+            before = ball[s - 1] if s > a else np.array([np.nan, np.nan])
+            after = ball[e] if e < b else np.array([np.nan, np.nan])
+            anchor = before if np.isfinite(before).all() else after
+            if not np.isfinite(anchor).all():
+                anchor = np.asarray(m.pitch, dtype=np.float32) / 2
+            if mode == 1:
+                ball[s:e] = anchor
+            else:
+                end = after if np.isfinite(after).all() else anchor
+                u = np.linspace(0.0, 1.0, e - s, dtype=np.float32)[:, None]
+                excursion = rng.normal(0.0, 2.0, size=2).astype(np.float32)
+                ball[s:e] = (1 - u) * anchor + u * end + np.sin(np.pi * u) * excursion
+        finite = np.isfinite(ball[a:b]).all(axis=1)
+        edges = np.diff(np.r_[False, finite, False].astype(np.int8))
+        for start, stop in zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)):
+            s, e = a + int(start), a + int(stop)
+            width = min(21, (e - s - 1) // 2 * 2 + 1)
+            if width >= 5:
+                ball[s:e] = savgol_filter(ball[s:e], width, 2, axis=0, mode="interp")
+    return Match(name=m.name, ball=ball, pos=m.pos, spd=m.spd, team=m.team,
+                 blocks=list(m.blocks), pitch=m.pitch, gt=m.gt,
+                 meta=dict(m.meta, stoppage_augmentation_seed=int(seed)))

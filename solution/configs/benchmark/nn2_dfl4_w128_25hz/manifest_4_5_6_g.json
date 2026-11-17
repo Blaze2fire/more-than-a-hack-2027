@@ -1,0 +1,45 @@
+{
+  "tag": "ablate_w128_25hz",
+  "source_fingerprint": "6a614fe848d79fe0f730092d6f09183dcc2dfd19b7d636d699c5cef52aa57c95",
+  "args": {
+    "tag": "ablate_w128_25hz",
+    "groups": "4,5,6,g",
+    "steps": 2000,
+    "batch": 12,
+    "width": 128,
+    "gru_layers": 2,
+    "lr": 0.002,
+    "seeds": "0",
+    "no_metrica": true,
+    "w_met": 0.7,
+    "n_sc": 0,
+    "w_sc": 0.15,
+    "save_final": "",
+    "train_keys": "dfl0,dfl1,dfl2,dfl3",
+    "frame_stride": 1,
+    "gap_policy": "mixed",
+    "threads": 2,
+    "out_dir": "solution/out/ablate_nn2_w128_25hz"
+  },
+  "train_keys": [
+    "dfl0",
+    "dfl1",
+    "dfl2",
+    "dfl3"
+  ],
+  "held_keys": [
+    "dfl4",
+    "dfl5",
+    "dfl6",
+    "g"
+  ],
+  "training_fixtures": [
+    "dfl_J03WMX",
+    "dfl_J03WN1",
+    "dfl_J03WOH",
+    "dfl_J03WOY"
+  ],
+  "fit_scope": "public external tracking and native provider labels only; no learned imputer",
+  "sampling_fps": 25.0,
+  "model_sha256": "fe84d17da568f5c2fada5e45b37e3265077bf411c6b995180cd373b8422070d8"
+}

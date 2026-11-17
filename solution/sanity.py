@@ -33,8 +33,12 @@ def main():
     base = agree(pred)
     swapped = agree(np.where(pred == H, A, np.where(pred == A, H, pred)))
     shifted = max(agree(np.roll(pred, SHIFT)), agree(np.roll(pred, -SHIFT)))
-    print("orientation (H/A the right way round): %s" % ("PASS" if base > swapped else "FAIL"))
-    print("alignment   (better than +/-%d frames): %s" % (SHIFT, "PASS" if base > shifted else "FAIL"))
+    ok_ori = base > swapped
+    ok_ali = base > shifted
+    print("orientation (H/A the right way round): %s" % ("PASS" if ok_ori else "FAIL"))
+    print("alignment   (better than +/-%d frames): %s" % (SHIFT, "PASS" if ok_ali else "FAIL"))
+    if (not ok_ori) or (not ok_ali):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -48,6 +48,7 @@ six==1.17.0
 sortedcontainers==2.4.0
 threadpoolctl==3.8.0
 tqdm==4.70.1
+torch==2.15.0
 truststore==0.10.5
 typing_extensions==4.16.0
 tzdata==2026.6

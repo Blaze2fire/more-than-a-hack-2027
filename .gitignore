@@ -70,3 +70,12 @@ external/
 cache/
 solution/out/
 solution/out_*.log
+Elvern-latest-submission/
+docs/live_visualizer_5min.html
+catboost_info/
+
+# -- internal analysis (kept local, not published) --
+research/
+docs/DEADLINE_REVIEW.md
+docs/TEAM_AND_PARTICIPANT_SYNTHESIS.md
+docs/TEAMMATE_MING_XUTD_REVIEW.md

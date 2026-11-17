@@ -1,0 +1,227 @@
+{
+  "training_recipe": "pipeline_v4_nested_preprocessing_v2",
+  "mode": "ens3",
+  "seed": 1701,
+  "use_p3": true,
+  "ball_free_fallback": true,
+  "long_bursts": false,
+  "stoppage_augmentation": false,
+  "include_sc_stage2": true,
+  "sc_s2_weight": 1.0,
+  "metrica_tracking": "unified_v4",
+  "stride_scale": 1,
+  "published_degradation": true,
+  "fixtures": [
+    {
+      "name": "dfl_J03WMX",
+      "source": "sportec-dfl-v1",
+      "has_real_dead_ball": true
+    },
+    {
+      "name": "dfl_J03WN1",
+      "source": "sportec-dfl-v1",
+      "has_real_dead_ball": true
+    },
+    {
+      "name": "dfl_J03WOH",
+      "source": "sportec-dfl-v1",
+      "has_real_dead_ball": true
+    },
+    {
+      "name": "dfl_J03WOY",
+      "source": "sportec-dfl-v1",
+      "has_real_dead_ball": true
+    }
+  ],
+  "scenarios": [
+    {
+      "label": "dfl_J03WMX/natural",
+      "fixture": "dfl_J03WMX",
+      "fold": 0,
+      "seed": 2615973188
+    },
+    {
+      "label": "dfl_J03WMX/atd_blind",
+      "fixture": "dfl_J03WMX",
+      "fold": 0,
+      "seed": 3375885223
+    },
+    {
+      "label": "dfl_J03WMX/atd_carried_dead",
+      "fixture": "dfl_J03WMX",
+      "fold": 0,
+      "seed": 2334470605
+    },
+    {
+      "label": "dfl_J03WN1/natural",
+      "fixture": "dfl_J03WN1",
+      "fold": 1,
+      "seed": 2037179485
+    },
+    {
+      "label": "dfl_J03WN1/atd_blind",
+      "fixture": "dfl_J03WN1",
+      "fold": 1,
+      "seed": 1514977835
+    },
+    {
+      "label": "dfl_J03WN1/atd_carried_dead",
+      "fixture": "dfl_J03WN1",
+      "fold": 1,
+      "seed": 550757714
+    },
+    {
+      "label": "dfl_J03WOH/natural",
+      "fixture": "dfl_J03WOH",
+      "fold": 2,
+      "seed": 256864127
+    },
+    {
+      "label": "dfl_J03WOH/atd_blind",
+      "fixture": "dfl_J03WOH",
+      "fold": 2,
+      "seed": 3225603126
+    },
+    {
+      "label": "dfl_J03WOH/atd_carried_dead",
+      "fixture": "dfl_J03WOH",
+      "fold": 2,
+      "seed": 847288978
+    },
+    {
+      "label": "dfl_J03WOY/natural",
+      "fixture": "dfl_J03WOY",
+      "fold": 0,
+      "seed": 404898120
+    },
+    {
+      "label": "dfl_J03WOY/atd_blind",
+      "fixture": "dfl_J03WOY",
+      "fold": 0,
+      "seed": 1048825702
+    },
+    {
+      "label": "dfl_J03WOY/atd_carried_dead",
+      "fixture": "dfl_J03WOY",
+      "fold": 0,
+      "seed": 1510783030
+    }
+  ],
+  "inner_folds": [
+    {
+      "fold": 0,
+      "stage1_train": [
+        "dfl_J03WN1",
+        "dfl_J03WOH"
+      ],
+      "imputer_train": [
+        "dfl_J03WN1",
+        "dfl_J03WOH"
+      ],
+      "stage2_oof": [
+        "dfl_J03WMX",
+        "dfl_J03WOY"
+      ]
+    },
+    {
+      "fold": 1,
+      "stage1_train": [
+        "dfl_J03WMX",
+        "dfl_J03WOH",
+        "dfl_J03WOY"
+      ],
+      "imputer_train": [
+        "dfl_J03WMX",
+        "dfl_J03WOH",
+        "dfl_J03WOY"
+      ],
+      "stage2_oof": [
+        "dfl_J03WN1"
+      ]
+    },
+    {
+      "fold": 2,
+      "stage1_train": [
+        "dfl_J03WMX",
+        "dfl_J03WN1",
+        "dfl_J03WOY"
+      ],
+      "imputer_train": [
+        "dfl_J03WMX",
+        "dfl_J03WN1",
+        "dfl_J03WOY"
+      ],
+      "stage2_oof": [
+        "dfl_J03WOH"
+      ]
+    }
+  ],
+  "benchmark_protocol": "independent first-four DFL training; fixture-group inner OOF",
+  "training_dfl": [
+    "J03WMX",
+    "J03WN1",
+    "J03WOH",
+    "J03WOY"
+  ],
+  "training_skillcorner": [],
+  "held_out_dfl": [
+    "J03WPY",
+    "J03WQQ",
+    "J03WR9"
+  ],
+  "held_out_providers": [
+    "groningen",
+    "metrica1",
+    "metrica2",
+    "metrica3"
+  ],
+  "metrica_used_for_fitting": false,
+  "competition_data_accessed": false,
+  "source_hashes": {
+    "train_v4.py": "0fbfa37bdba80f30ff3ad0c99dabc4bb694aa798efa5de64b0fd1f36b275f244",
+    "pipeline_v4.py": "44c892fd3c48d0f7511511f1c71d66b150abde2c6af6800265d13fe3d29906b1",
+    "features_v4.py": "fc0cb20b9cb802fca313e82e10a75784a257eaef896f84c07265a2acf331d12b",
+    "ball_tracker.py": "a779d4d461801261f9b2a3a6006c6cef1c22d23a84acca868c7f3f2a5b0f81aa",
+    "datasets.py": "2f4e81e3e21e4bcb09a2dbed8b31426eb42c04ebcb73be86ba97a8c08c50fbd5",
+    "external.py": "a14892fe9c70fa0b332e0db4431f7d1f1a98db6994d0c6e183340b109f5f80df",
+    "temporal.py": "e51e602eb6569ccb2408986170163bd10533e2d37df6b8b9eb17e8c1c09074f1",
+    "viterbi4.py": "d070228e9d1d790c574ed02bf184705627b6d9f43b92442685479852c6689b40",
+    "changepoint.py": "df16b137960a02f3cb843bf54739f6296d8efa7e068e6c89d3af4735396e2a48",
+    "deadline_benchmark.py": "6f8a78216be5dff60cadae7f9ae91ec8ba97acbbdfd27a3301df993c990e403a",
+    "ownership_blend.py": "baca2fb6e284ccb35c5af4b3f735022de969f8bd564edc222cdce879e285d186"
+  },
+  "import_source_hashes": {
+    "train_v4.py": "0fbfa37bdba80f30ff3ad0c99dabc4bb694aa798efa5de64b0fd1f36b275f244",
+    "pipeline_v4.py": "44c892fd3c48d0f7511511f1c71d66b150abde2c6af6800265d13fe3d29906b1",
+    "features_v4.py": "fc0cb20b9cb802fca313e82e10a75784a257eaef896f84c07265a2acf331d12b",
+    "ball_tracker.py": "a779d4d461801261f9b2a3a6006c6cef1c22d23a84acca868c7f3f2a5b0f81aa",
+    "datasets.py": "2f4e81e3e21e4bcb09a2dbed8b31426eb42c04ebcb73be86ba97a8c08c50fbd5",
+    "external.py": "a14892fe9c70fa0b332e0db4431f7d1f1a98db6994d0c6e183340b109f5f80df",
+    "temporal.py": "e51e602eb6569ccb2408986170163bd10533e2d37df6b8b9eb17e8c1c09074f1",
+    "viterbi4.py": "d070228e9d1d790c574ed02bf184705627b6d9f43b92442685479852c6689b40",
+    "changepoint.py": "df16b137960a02f3cb843bf54739f6296d8efa7e068e6c89d3af4735396e2a48",
+    "deadline_benchmark.py": "6f8a78216be5dff60cadae7f9ae91ec8ba97acbbdfd27a3301df993c990e403a",
+    "ownership_blend.py": "baca2fb6e284ccb35c5af4b3f735022de969f8bd564edc222cdce879e285d186"
+  },
+  "args": {
+    "command": "train",
+    "out": "solution/out/dfl4_clean_ens3/pipeline.pkl",
+    "mode": "ens3",
+    "sc_limit": 0,
+    "no_sc_stage2": false,
+    "use_p3": true,
+    "ball_free": true,
+    "boundary": false,
+    "long_bursts": false,
+    "stoppage_augmentation": false,
+    "save_oof": null,
+    "seed": 1701,
+    "inner_folds": 3,
+    "gpu": true,
+    "metrica_train": false,
+    "published_degradation": true
+  },
+  "model_sha256": "580ed5cacd8e6cfe7f45a408b7cb9213c1404b8b38538e0e55f6dda3b5f3bbc2",
+  "elapsed_seconds": 1260.7580954160003,
+  "caveat": "External fixtures have prior development exposure; no untouched-test claim."
+}

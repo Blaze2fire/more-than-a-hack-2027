@@ -285,8 +285,14 @@ def _fill_dead_ball(ball, blocks, pitch, rng, mode="path"):
     return out
 
 
-def degrade(match, scenario="path", seed=0):
-    """A copy of a clean external Match that looks like automatic tracking."""
+def degrade(match, scenario="path", seed=0, tracking_version="legacy"):
+    """A degraded external match; historical benchmark defaults stay reproducible.
+
+    ``unified_v4`` recomputes speeds from corrupted, fragmented player positions.
+    ``legacy`` preserves the E006-E014 Metrica benchmark convention.
+    """
+    if tracking_version not in ("legacy", "unified_v4"):
+        raise ValueError("Unknown external tracking version: %s" % tracking_version)
     cfg = SCENARIOS[scenario]
     rng = np.random.default_rng(seed)
     n = match.n
@@ -304,10 +310,15 @@ def degrade(match, scenario="path", seed=0):
         pos[gone, j] = np.nan
         spd[gone, j] = np.nan
     spd = np.clip(spd, 0, MAX_SPEED)
+    team = match.team.copy()
+    if tracking_version == "unified_v4":
+        from solution.datasets import compute_speed, fragment_player_tracks
+        pos, team = fragment_player_tracks(pos, team, match.blocks, rng)
+        spd = compute_speed(pos, match.blocks)
     return Match(name="%s/%s" % (match.name, scenario), ball=ball.astype(np.float32), pos=pos,
-                 spd=spd, team=match.team, blocks=match.blocks, pitch=match.pitch, gt=match.gt,
-                 meta={"source": match.meta.get("source"), "scenario": scenario, "seed": seed,
-                       "gt_raw": match.meta["gt_raw"]})
+                 spd=spd, team=team, blocks=list(match.blocks), pitch=match.pitch, gt=match.gt,
+                 meta=dict(match.meta, scenario=scenario, seed=int(seed),
+                           tracking_version=tracking_version))
 
 
 if __name__ == "__main__":

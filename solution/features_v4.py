@@ -356,6 +356,7 @@ def build_team_features(
     rb: Optional[ReconstructedBall] = None,
     vel: Optional[np.ndarray] = None,
     swap: bool = False,
+    use_p3: bool = False,
 ) -> np.ndarray:
     """Build equivariant own-vs-opp features for live team possession estimation."""
     n, s, _ = m.pos.shape
@@ -591,4 +592,191 @@ def build_team_features(
     for w in (10, 25, 60):
         cols.append(_fwd_bwd_diff_blocks(chg_sig, m.blocks, w))
 
+    if use_p3:
+        cols.append(compute_centroid_axis_motion(m, vel=vel, swap=swap))
+        cols.append(compute_deblurred_ball_features(m, rb=rb, px=px, py=py, vp_own=vp_own, vp_opp=vp_opp))
+
     return np.hstack(cols).astype(np.float32)
+
+
+def compute_centroid_axis_motion(
+    m: Match,
+    vel: Optional[np.ndarray] = None,
+    swap: bool = False,
+) -> np.ndarray:
+    """Strictly ball-free, H<->A equivariant opposing centroid-axis motion features (45 cols)."""
+    n = m.n
+    if vel is None:
+        vel = compute_player_vel(m.pos, m.blocks)
+    own_team = 1 if swap else 0
+    opp_team = 0 if swap else 1
+    mask_own = (m.team == own_team)
+    mask_opp = (m.team == opp_team)
+
+    px = m.pos[:, :, 0].astype(np.float32, copy=False)
+    py = m.pos[:, :, 1].astype(np.float32, copy=False)
+    vx = np.nan_to_num(vel[:, :, 0], nan=0.0).astype(np.float32, copy=False)
+    vy = np.nan_to_num(vel[:, :, 1], nan=0.0).astype(np.float32, copy=False)
+    spd_p = np.hypot(vx, vy)
+    vp = np.isfinite(px) & np.isfinite(py)
+    vp_own = vp & mask_own[None, :]
+    vp_opp = vp & mask_opp[None, :]
+
+    def _team_stats(v_mask: np.ndarray):
+        cnt = np.maximum(v_mask.sum(axis=1).astype(np.float32), 1.0)
+        has = v_mask.any(axis=1)
+        mx = np.where(v_mask, px, 0.0).sum(axis=1) / cnt
+        my = np.where(v_mask, py, 0.0).sum(axis=1) / cnt
+        cx = np.where(has, mx, 0.5 * m.pitch[0]).astype(np.float32)
+        cy = np.where(has, my, 0.5 * m.pitch[1]).astype(np.float32)
+        mvx = (np.where(v_mask, vx, 0.0).sum(axis=1) / cnt).astype(np.float32)
+        mvy = (np.where(v_mask, vy, 0.0).sum(axis=1) / cnt).astype(np.float32)
+        mspd = (np.where(v_mask, spd_p, 0.0).sum(axis=1) / cnt).astype(np.float32)
+        dx = np.where(v_mask, px - cx[:, None], 0.0)
+        dy = np.where(v_mask, py - cy[:, None], 0.0)
+        return cx, cy, mvx, mvy, mspd, dx, dy, cnt
+
+    cx_o, cy_o, mvx_o, mvy_o, spd_o, dx_o, dy_o, cnt_o = _team_stats(vp_own)
+    cx_x, cy_x, mvx_x, mvy_x, spd_x, dx_x, dy_x, cnt_x = _team_stats(vp_opp)
+
+    ax = cx_x - cx_o
+    ay = cy_x - cy_o
+    norm = np.maximum(np.hypot(ax, ay), 2.0)
+    ux = (ax / norm).astype(np.float32)
+    uy = (ay / norm).astype(np.float32)
+    # Orthogonal across-axis magnitude doesn't depend on handedness sign
+    qx = -uy
+    qy = ux
+
+    # Average signed player directional agreement along centroid axis
+    def _agree(v_mask, ux_dir, uy_dir):
+        v_len = np.maximum(spd_p, 0.5)
+        ok = v_mask & (spd_p > 0.5)
+        cos_t = np.where(ok, (vx * ux_dir[:, None] + vy * uy_dir[:, None]) / v_len, 0.0)
+        denom = np.maximum(ok.sum(axis=1).astype(np.float32), 1.0)
+        return (cos_t.sum(axis=1) / denom).astype(np.float32)
+
+    agree_o = _agree(vp_own, ux, uy)
+    agree_x = _agree(vp_opp, -ux, -uy)
+
+    # Spread along opposing axis
+    spr_o = np.sqrt(np.maximum((np.where(vp_own, (dx_o * ux[:, None] + dy_o * uy[:, None]) ** 2, 0.0)).sum(axis=1) / cnt_o, 0.0)).astype(np.float32)
+    spr_x = np.sqrt(np.maximum((np.where(vp_opp, (dx_x * ux[:, None] + dy_x * uy[:, None]) ** 2, 0.0)).sum(axis=1) / cnt_x, 0.0)).astype(np.float32)
+
+    # Block-respecting consecutive W-frame centroid displacement velocity & speed/spread change
+    feat_cols = []
+    for W in (10, 30):
+        vcx_o = np.zeros(n, dtype=np.float32)
+        vcy_o = np.zeros(n, dtype=np.float32)
+        vcx_x = np.zeros(n, dtype=np.float32)
+        vcy_x = np.zeros(n, dtype=np.float32)
+        dsc_o = np.zeros(n, dtype=np.float32)
+        dsc_x = np.zeros(n, dtype=np.float32)
+        dspr_o = np.zeros(n, dtype=np.float32)
+        dspr_x = np.zeros(n, dtype=np.float32)
+        for b0, b1 in m.blocks:
+            L = b1 - b0
+            if L <= 1:
+                continue
+            step = min(W, L - 1)
+            if L > step:
+                dt = float(step) / FPS
+                vcx_o[b0 + step : b1] = (cx_o[b0 + step : b1] - cx_o[b0 : b1 - step]) / dt
+                vcy_o[b0 + step : b1] = (cy_o[b0 + step : b1] - cy_o[b0 : b1 - step]) / dt
+                vcx_x[b0 + step : b1] = (cx_x[b0 + step : b1] - cx_x[b0 : b1 - step]) / dt
+                vcy_x[b0 + step : b1] = (cy_x[b0 + step : b1] - cy_x[b0 : b1 - step]) / dt
+                dsc_o[b0 + step : b1] = spd_o[b0 + step : b1] - spd_o[b0 : b1 - step]
+                dsc_x[b0 + step : b1] = spd_x[b0 + step : b1] - spd_x[b0 : b1 - step]
+                dspr_o[b0 + step : b1] = spr_o[b0 + step : b1] - spr_o[b0 : b1 - step]
+                dspr_x[b0 + step : b1] = spr_x[b0 + step : b1] - spr_x[b0 : b1 - step]
+
+        va_o = vcx_o * ux + vcy_o * uy
+        va_x = vcx_x * (-ux) + vcy_x * (-uy)
+        vac_o = np.abs(vcx_o * qx + vcy_o * qy)
+        vac_x = np.abs(vcx_x * qx + vcy_x * qy)
+        # Blend instantaneous player mean velocity along axis for W=10 responsiveness
+        if W == 10:
+            vmean_o = mvx_o * ux + mvy_o * uy
+            vmean_x = mvx_x * (-ux) + mvy_x * (-uy)
+            feat_cols.extend([
+                0.5 * va_o + 0.5 * vmean_o,
+                0.5 * va_x + 0.5 * vmean_x,
+                (0.5 * va_o + 0.5 * vmean_o) - (0.5 * va_x + 0.5 * vmean_x),
+                agree_o,
+                agree_x,
+                agree_o - agree_x,
+                dsc_o - dsc_x,
+            ])
+        else:
+            feat_cols.extend([
+                va_o,
+                va_x,
+                va_o - va_x,
+                vac_o - vac_x,
+                agree_o - agree_x,
+                dsc_o - dsc_x,
+                dspr_o,
+                dspr_o - dspr_x,
+            ])
+
+    base15 = np.nan_to_num(np.column_stack(feat_cols), nan=0.0, posinf=20.0, neginf=-20.0).astype(np.float32)
+    r10 = _roll_mean_blocks(base15, m.blocks, 10)
+    r30 = _roll_mean_blocks(base15, m.blocks, 30)
+    return np.hstack([base15, r10, r30]).astype(np.float32)
+
+
+def compute_deblurred_ball_features(
+    m: Match,
+    rb: ReconstructedBall,
+    px: np.ndarray,
+    py: np.ndarray,
+    vp_own: np.ndarray,
+    vp_opp: np.ndarray,
+) -> np.ndarray:
+    """Laplacian de-blurred ball kinematics + micro-touch kinks (10 cols)."""
+    n = m.n
+    bxy = rb.ball_hat.astype(np.float32, copy=False)
+    bconf = rb.ball_conf.astype(np.float32, copy=False)
+    sm18 = _roll_mean_blocks(bxy, m.blocks, 9)
+    bsharp = bxy - 0.35 * (sm18 - bxy)
+    bx_s, by_s = bsharp[:, 0], bsharp[:, 1]
+
+    d2_own = np.where(vp_own, (px - bx_s[:, None]) ** 2 + (py - by_s[:, None]) ** 2, 1e9)
+    d2_opp = np.where(vp_opp, (px - bx_s[:, None]) ** 2 + (py - by_s[:, None]) ** 2, 1e9)
+    d1_own_sh = np.sqrt(np.min(d2_own, axis=1)).astype(np.float32) if d2_own.shape[1] else np.full(n, 40.0, dtype=np.float32)
+    d1_opp_sh = np.sqrt(np.min(d2_opp, axis=1)).astype(np.float32) if d2_opp.shape[1] else np.full(n, 40.0, dtype=np.float32)
+    d1_sh_diff = (d1_opp_sh - d1_own_sh) * bconf
+
+    def _kink(step: int) -> np.ndarray:
+        out = np.zeros(n, dtype=np.float32)
+        for b0, b1 in m.blocks:
+            if b1 - b0 <= 2 * step:
+                continue
+            dx1 = bx_s[b0 + step : b1 - step] - bx_s[b0 : b1 - 2 * step]
+            dy1 = by_s[b0 + step : b1 - step] - by_s[b0 : b1 - 2 * step]
+            dx2 = bx_s[b0 + 2 * step : b1] - bx_s[b0 + step : b1 - step]
+            dy2 = by_s[b0 + 2 * step : b1] - by_s[b0 + step : b1 - step]
+            n1 = np.maximum(np.hypot(dx1, dy1), 1e-3)
+            n2 = np.maximum(np.hypot(dx2, dy2), 1e-3)
+            cos_a = np.clip((dx1 * dx2 + dy1 * dy2) / (n1 * n2), -1.0, 1.0)
+            spd_min = np.minimum(n1, n2) * (FPS / float(step))
+            out[b0 + step : b1 - step] = 0.5 * (1.0 - cos_a) * np.minimum(spd_min, 15.0)
+        return out * bconf
+
+    k10 = _kink(10)
+    k20 = _kink(20)
+    base5 = np.nan_to_num(
+        np.column_stack([d1_own_sh, d1_opp_sh, d1_sh_diff, k10, k20]),
+        nan=0.0,
+        posinf=40.0,
+        neginf=-40.0,
+    ).astype(np.float32)
+    r10 = _roll_mean_blocks(base5, m.blocks, 10)
+    return np.hstack([base5, r10]).astype(np.float32)
+
+
+def ball_free_team_cols(n_cols: int) -> Optional[np.ndarray]:
+    """Return strictly ball-free equivariant column indices for gap specialist model."""
+    if n_cols >= 201:
+        return np.arange(156, 201, dtype=np.int64)
+    return None
